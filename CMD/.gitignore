@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+*.sqlite3
+db.sqlite3
+staticfiles/
+static/
+*/migrations/
+!*/migrations/__init__.py
