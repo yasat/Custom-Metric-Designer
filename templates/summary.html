@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Summary | CMD{% endblock %}
+
+{% block content %}
+<style>
+    .page-wrapper {
+        display: flex;
+        flex-direction: column;
+        min-height: calc(100vh - 250px);
+    }
+
+    .summary-container {
+        flex: 1;
+        display: flex;
+        align-items: center;
+    }
+
+    .summary-wrapper {
+        width: 100%;
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 0 2rem;
+    }
+
+    .summary-item {
+        border: 1px solid #ccc;
+        border-radius: 0.5rem;
+        padding: 1.5rem 2rem;
+        margin-bottom: 1.5rem;
+        background-color: #fff;
+    }
+
+    .summary-item h5 {
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+
+    .summary-item p {
+        font-size: 1.1rem;
+        color: #333;
+        margin: 0;
+    }
+
+    .btn-start {
+        padding: 1rem 3rem;
+        font-size: 1.25rem;
+    }
+</style>
+
+<div class="page-wrapper">
+
+    <div class="summary-container">
+        <div class="summary-wrapper">
+            <div class="mb-5">
+                <h4 class="fw-bold mb-3">Summary of Your Choices</h4>
+
+                <div class="summary-item">
+                    <h5>Fairness Category</h5>
+                    <p>{{ category }}</p>
+                </div>
+
+                <div class="summary-item">
+                    <h5>Fairness Perspective</h5>
+                    <p>{{ perspective }}</p>
+                </div>
+
+                <div class="summary-item">
+                    <h5>Metric Type</h5>
+                    <p>{{ metric_type }}</p>
+                </div>
+            </div>
+
+            <div class="text-center">
+                <a href="{% url 'start_designing' staging_id=staging_id %}" class="btn btn-success rounded-pill btn-start">Start Designing</a>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

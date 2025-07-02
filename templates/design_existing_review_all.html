@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Review All Metrics | CMD{% endblock %}
+
+{% block content %}
+<style>
+    .page-wrapper {
+        display: flex;
+        flex-direction: column;
+        min-height: calc(100vh - 300px);
+    }
+
+    .review-container {
+        flex: 1;
+        display: flex;
+        align-items: flex-start;
+    }
+
+    .review-wrapper {
+        width: 100%;
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+
+    .review-card {
+        border: 1px solid #ccc;
+        border-radius: 0.5rem;
+        padding: 1.5rem 2rem;
+        margin-bottom: 1.5rem;
+        background-color: #fff;
+    }
+
+    .review-card h5 {
+        font-weight: bold;
+        margin-bottom: 0.75rem;
+    }
+
+    .feature-badge {
+        display: inline-block;
+        background-color: #e7f3ff;
+        border: 1px solid #bcdfff;
+        color: #004085;
+        padding: 0.4rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        margin: 0.2rem 0.4rem 0.4rem 0;
+    }
+
+    .metric-label {
+        font-size: 1.1rem;
+        font-weight: 500;
+        color: #333;
+    }
+
+    .btn-group-custom {
+        margin-top: 2rem;
+        text-align: center;
+    }
+
+    .btn-group-custom .btn {
+        padding: 0.75rem 2.5rem;
+        font-size: 1.1rem;
+        margin-right: 1rem;
+    }
+</style>
+
+<div class="page-wrapper">
+    <div class="review-container">
+        <div class="review-wrapper">
+            <h4 class="fw-bold mb-4">Summary of All Created Metrics</h4>
+
+            {% for design in designs %}
+                <div class="review-card">
+                    <h5>Metric: <span class="metric-label">{{ design.metric }}</span></h5>
+                    <p class="mb-1"><strong>Threshold:</strong> {{ design.threshold }}%</p>
+                    <p class="mb-2"><strong>Features:</strong></p>
+                    <div>
+                        {% for f in design.features %}
+                            <span class="feature-badge">{{ f }}</span>
+                        {% endfor %}
+                    </div>
+                    <a href="{% url 'design_existing_features' staging_id=staging_id %}?edit={{ design.id }}" class="btn btn-sm btn-outline-primary me-2">Edit</a>
+                    <a href="{% url 'design_existing_delete' staging_id=staging_id %}?delete={{ design.id }}" class="btn btn-sm btn-danger me-2">Delete</a>
+                </div>
+            {% empty %}
+                <p class="text-muted">No metric designs have been created yet for this session.</p>
+            {% endfor %}
+
+            <div class="btn-group-custom">
+                <form action="{% url 'design_existing_save_new' staging_id=staging_id %}" method="post" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-primary rounded-pill">
+                        Add New Metric
+                    </button>
+                </form>
+                <a href="{% url 'home' %}" class="btn btn-success rounded-pill">
+                    Finish & Return Home
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

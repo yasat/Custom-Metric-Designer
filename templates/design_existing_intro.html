@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Design: Overview | CMD{% endblock %}
+
+{% block content %}
+<div class="page-wrapper d-flex align-items-center justify-content-center">
+    <div class="text-center px-4" style="max-width: 800px;">
+        <h4 class="fw-bold mb-4">Overview of the Metric Design Flow</h4>
+        <p class="lead">You are about to build a fairness metric using existing components. The steps are:</p>
+        <ol class="text-start mt-3">
+            <li>Select Features and bin them appropriately</li>
+            <li>Choose a pre-defined metric that aligns with your goals</li>
+            <li>Set a threshold value (0–100%) for the metric to flag outcomes</li>
+            <li>Review and optionally save your configuration</li>
+        </ol>
+
+        <a href="{% url 'design_existing_features' staging_id=staging_id %}" class="btn btn-success rounded-pill px-5 py-3 fs-5 mt-4">Start</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Home | CMD{% endblock %}
+
+{% block content %}
+    <div class="text-center">
+        <h1>Welcome to CMD..</h1>
+        <p>This is the homepage for custom metric designing</p>
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-4">
+                <label for="Participant ID" class="form-label fw-semibold">Participant ID</label>
+                <input type="text" name="pid" id="pid" value="" required>
+            </div>
+
+            <div class="text-center">
+                <button type="submit" class="btn btn-success rounded-pill px-5 py-3 fs-5">
+                    Start Desigining
+                </button>
+            </div>
+        </form>
+    </div>
+{% endblock %}

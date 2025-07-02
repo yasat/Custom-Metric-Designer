@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Fairness Category | CMD{% endblock %}
+
+{% block content %}
+<style>
+    .page-wrapper {
+        display: flex;
+        flex-direction: column;
+        min-height: calc(100vh - 250px); /* Avoid fixed height to prevent scroll */
+    }
+
+    .form-container {
+        flex: 1;
+        display: flex;
+        align-items: center;
+    }
+
+    .form-wrapper {
+        width: 100%;
+        max-width: 1100px;
+        padding-left: 3rem;
+        padding-right: 3rem;
+        margin: 0 auto;
+    }
+
+    .option-card {
+        min-height: 30vh;
+        font-size: 1.4rem;
+        padding: 2rem 1rem;
+        text-align: center;
+        cursor: pointer;
+    }
+
+    .option-card input[type="radio"] {
+        transform: scale(1.6);
+        margin-bottom: 1rem;
+    }
+
+    @media (max-width: 768px) {
+        .option-card {
+            font-size: 1.1rem;
+            min-height: 20vh;
+        }
+
+        .option-card input[type="radio"] {
+            transform: scale(1.3);
+        }
+    }
+</style>
+
+<div class="page-wrapper">
+
+    <!-- Centered Form Content -->
+    <div class="form-container">
+        <div class="form-wrapper">
+            <!-- Question text -->
+            <div class="mb-4">
+                <h4 class="fw-bold mb-2">1. Fairness Category</h4>
+                <p class="text-muted mb-4">Who do you want to protect?</p>
+            </div>
+
+            <!-- Form -->
+            <form method="post">
+                {% csrf_token %}
+                <div class="row gx-5 gy-4">
+                    <div class="col-12 col-md-4">
+                        <label class="border rounded d-flex flex-column align-items-center justify-content-center w-100 option-card">
+                            <input type="radio" name="fairness" value="individual" class="form-check-input" {% if selected_category == "individual" %}checked{% endif %} required>
+                            <div class="fw-semibold">Individual Fairness</div>
+                        </label>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="border rounded d-flex flex-column align-items-center justify-content-center w-100 option-card">
+                            <input type="radio" name="fairness" value="group" class="form-check-input" {% if selected_category == "group" %}checked{% endif %} required>
+                            <div class="fw-semibold">Group Fairness</div>
+                        </label>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="border rounded d-flex flex-column align-items-center justify-content-center w-100 option-card">
+                            <input type="radio" name="fairness" value="both" class="form-check-input" {% if selected_category == "both" %}checked{% endif %} required>
+                            <div class="fw-semibold">Both</div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Divider -->
+                <hr class="my-4">
+
+                <!-- Button -->
+                <div class="text-center">
+                    <button type="submit" class="btn btn-success rounded-pill px-5 py-3 fs-5">
+                        Next
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

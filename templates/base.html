@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}CMD{% endblock %}</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .app-header {
+            background-color: #0057b7;
+            color: white;
+            padding: 1.5rem 2rem;
+        }
+        .app-header h1 {
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+        }
+        .app-header p {
+            font-size: 0.95rem;
+            margin: 0;
+        }
+    </style>
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<div class="app-header">
+    <h1 class="mb-1">AI Fairness Metrics Builder</h1>
+    <p>Interactive tool to designing custom fairness metrics in AI system</p>
+</div>
+
+<div class="container px-3 py-0">
+    <div class="custom-section">
+        <h3 class="fw-semibold mt-2 mb-1" style="font-size: 2rem;">Custom Design</h3>
+
+        {% if breadcrumb %}
+            <p class="text-muted" style="font-size: 1rem;">
+                {% for item in breadcrumb %}
+                    {% if item.url %}
+                        <a href="{% url item.url staging_id=staging_id %}">{{ item.label }}</a>
+                    {% else %}
+                        <span>{{ item.label }}</span>
+                    {% endif %}
+                    {% if not forloop.last %} &raquo; {% endif %}
+                {% endfor %}
+            </p>
+        {% endif %}
+
+        {% if breadcrumb_cm %}
+            <p class="text-muted" style="font-size: 1rem;">
+                {% for item in breadcrumb_cm %}
+                    {% if item.url %}
+                        <a href="{% url item.url staging_id=staging_id design_id=design_id %}">{{ item.label }}</a>
+                    {% else %}
+                        <span>{{ item.label }}</span>
+                    {% endif %}
+                    {% if not forloop.last %} &raquo; {% endif %}
+                {% endfor %}
+            </p>
+        {% endif %}
+
+        <hr>
+    </div>
+    {% block content %}{% endblock %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>
