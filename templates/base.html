@@ -56,7 +56,11 @@
             <p class="text-muted" style="font-size: 1rem;">
                 {% for item in breadcrumb_cm %}
                     {% if item.url %}
-                        <a href="{% url item.url staging_id=staging_id design_id=design_id %}">{{ item.label }}</a>
+                        {% if design_id %}
+                            <a href="{% url item.url staging_id=staging_id design_id=design_id %}">{{ item.label }}</a>
+                        {% else %}
+                            <a href="{% url item.url staging_id=staging_id %}">{{ item.label }}</a>
+                        {% endif %}
                     {% else %}
                         <span>{{ item.label }}</span>
                     {% endif %}
