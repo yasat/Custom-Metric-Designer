@@ -41,3 +41,25 @@ class DesignCombineMetrics(models.Model):
 
     def __str__(self):
         return f"CombinedMetric #{self.id} for Staging {self.sid_id}"
+    
+class DesignCustomOwnMetric(models.Model):
+    id = models.AutoField(primary_key=True)
+    sid = models.ForeignKey(Staging, on_delete=models.CASCADE)
+    probability_type = models.CharField(max_length=100, blank=True, null=True)
+    boolean_operator = models.CharField(max_length=10, blank=True, null=True)
+    order = models.IntegerField(default=0)
+    delete_flag = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"CustomOwnMetric #{self.id}"
+
+class DesignCustomOwnCondition(models.Model):
+    metric = models.ForeignKey(DesignCustomOwnMetric, on_delete=models.CASCADE, related_name='conditions')
+    feature = models.CharField(max_length=100)
+    binning = models.CharField(max_length=255, blank=True, null=True)  # e.g. "age[18-25]" or "gender[female]"
+    logic_with_next = models.CharField(max_length=15, blank=True, null=True)  # AND, OR, custom text
+
+class DesignCustomOwnGlobal(models.Model):
+    sid = models.OneToOneField(Staging, on_delete=models.CASCADE, related_name='custom_own_global')
+    metric_name = models.CharField(max_length=100)
+    threshold = models.FloatField(null=True, blank=True)

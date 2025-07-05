@@ -25,8 +25,14 @@ urlpatterns = [
     path('design/combine_existing/review_all/<int:staging_id>/', views.design_combine_existing_review_all, name='design_combine_existing_review_all'),
     path('design/combine_existing/summary/final/<int:staging_id>/', views.design_combine_existing_final_summary, name='design_combine_existing_final_summary'),
 
+    path('design/custom-own/<int:staging_id>/', views.custom_own_intro, name='custom_own_intro'),
+    path('design/custom-own/<int:staging_id>/select-mode/', views.custom_own_select_mode, name='custom_own_select_mode'),
+    path('design/custom-own/<int:staging_id>/card/<int:card_id>/', views.custom_own_card_edit, name='custom_own_card_edit'),
+    path('design/custom-own/<int:staging_id>/card/new/', views.custom_own_card_new, name='custom_own_card_new'),
+    path('design/custom-own/<int:staging_id>/logic-review/', views.custom_own_logic_review, name='custom_own_logic_review'),
+    path('design/custom-own/<int:staging_id>/set-threshold/', views.custom_own_set_threshold, name='custom_own_set_threshold'),
+    path('design/custom-own/<int:staging_id>/final-review/', views.custom_own_final_review, name='custom_own_final_review'),
 
-    path('design/custom-own/<int:staging_id>/', views.design_custom_own, name='design_custom_own'),
 
     path('under_construction', views.under_construction, name='under_construction'),
 ]

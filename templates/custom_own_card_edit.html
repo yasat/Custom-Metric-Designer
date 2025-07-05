@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+{% block title %}Edit Probability Card{% endblock %}
+
+{% block content %}
+<h4 class="fw-bold mb-3">Edit Probability Card</h4>
+
+<form method="post">
+  {% csrf_token %}
+
+  <div class="mb-4">
+    <label class="form-label">Probability of</label>
+    <select name="probability_type" class="form-select" id="probability-type" required>
+      {% for label in probability_labels %}
+        <option value="{{ label.0 }}" {% if metric.probability_type == label.0 %}selected{% endif %}>{{ label.1 }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <hr>
+  <h5 class="mb-3">When (Conditions)</h5>
+
+  <div class="mb-3" id="label-toggle-group" style="display: none;">
+    <label class="form-label">Extra Label Condition (optional)</label>
+    <div class="btn-group" role="group">
+      {% for label in labels %}
+        <button type="button" class="btn btn-outline-primary label-toggle"
+                data-type="{{ label.0|cut:'_true'|cut:'_false' }}"
+                data-value="{{ label.0 }}">
+          {{ label.1 }}
+        </button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <input type="hidden" name="label_condition" id="label_condition" value="">
+  <input type="hidden" id="total_conditions" name="total_conditions" value="{{ conditions|length }}">
+
+  <div id="conditions-container">
+    {% for cond in conditions %}
+      {% if cond.feature != 'ground_truth_true' and cond.feature != 'ground_truth_false' and cond.feature != 'predicted_true' and cond.feature != 'predicted_false' %}
+        {% if not forloop.first %}
+          <div class="row mb-2 logic-block">
+            <div class="col-md-3">
+              <select name="logic_{{ forloop.counter0 }}" class="form-select logic-select" data-index="{{ forloop.counter0 }}">
+                <option value="">None</option>
+                <option value="AND" {% if cond.logic_with_next == "AND" %}selected{% endif %}>AND</option>
+                <option value="OR" {% if cond.logic_with_next == "OR" %}selected{% endif %}>OR</option>
+                <option value="CUSTOM" {% if cond.logic_with_next != "AND" and cond.logic_with_next != "OR" %}selected{% endif %}>Custom</option>
+              </select>
+            </div>
+            <div class="col-md-3" id="custom-logic-{{ forloop.counter0 }}"
+                 style="display: {% if cond.logic_with_next != 'AND' and cond.logic_with_next != 'OR' %}block{% else %}none{% endif %};">
+              <input type="text" name="custom_logic_{{ forloop.counter0 }}" class="form-control"
+                     value="{% if cond.logic_with_next != 'AND' and cond.logic_with_next != 'OR' %}{{ cond.logic_with_next }}{% endif %}">
+            </div>
+          </div>
+        {% endif %}
+        <div class="row mb-4 condition-block align-items-end">
+          <div class="col-md-4">
+            <label class="form-label">Condition Source</label>
+            <select name="feature_{{ forloop.counter0 }}" class="form-select feature-select" required>
+              {% for feat in features %}
+                <option value="{{ feat.name }}" {% if feat.name == cond.feature %}selected{% endif %}>{{ feat.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Condition</label>
+            <div id="binning-block-{{ forloop.counter0 }}"></div>
+          </div>
+          <div class="col-md-2 text-end">
+            <button type="button" class="btn btn-outline-danger btn-sm remove-condition">Delete</button>
+          </div>
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <button type="button" class="btn btn-outline-secondary" onclick="addCondition()">+ Add Condition</button>
+
+  <div class="text-center mt-5">
+    <button type="submit" name="save_add_new" class="btn btn-outline-primary rounded-pill px-5 py-3 fs-5 me-3">
+        Save and Add New
+    </button>
+    <button type="submit" name="save_review_all" class="btn btn-success rounded-pill px-5 py-3 fs-5">
+        Save and Review All
+    </button>
+    </div>
+</form>
+
+<script>
+const FEATURES = {{ features|safe }};
+let conditionIndex = {{ conditions|length }};
+let labelConditionInserted = false;
+
+function renderBinningField(containerId, featureName, existing = "") {
+  const container = document.getElementById(containerId);
+  container.innerHTML = "";
+  const idx = containerId.split("-")[2];
+  const feature = FEATURES.find(f => f.name === featureName);
+  if (!feature) return;
+
+  if (feature.type === "numerical") {
+    let [minVal, maxVal] = (existing.match(/\[(.*?)-(.*?)\]/) || ["", "", ""]).slice(1);
+    container.innerHTML = `
+      <div class="row gx-2">
+        <div class="col">
+          <input name="binning_${idx}" class="form-control" placeholder="Min (${feature.min})" value="${minVal || ""}" required>
+        </div>
+        <div class="col">
+          <input name="binning_max_${idx}" class="form-control" placeholder="Max (${feature.max})" value="${maxVal || ""}" required>
+        </div>
+      </div>`;
+  } else {
+    const val = (existing.match(/\[(.*?)\]/) || ["", ""])[1];
+    container.innerHTML = `
+      <select name="binning_${idx}" class="form-select" required>
+        ${feature.categories.map(cat => `<option value="${cat}" ${val === cat ? "selected" : ""}>${cat}</option>`).join("")}
+      </select>`;
+  }
+}
+
+function addCondition(isLabelTrigger = false) {
+  const container = document.getElementById("conditions-container");
+  const idx = conditionIndex;
+
+  if (idx > 0 || isLabelTrigger) {
+    const logicRow = document.createElement("div");
+    logicRow.className = "row mb-2 logic-block";
+    logicRow.innerHTML = `
+      <div class="col-md-3">
+        <select name="logic_${idx}" class="form-select logic-select" data-index="${idx}">
+          <option value="">None</option>
+          <option value="AND">AND</option>
+          <option value="OR">OR</option>
+          <option value="CUSTOM">Custom</option>
+        </select>
+      </div>
+      <div class="col-md-3" id="custom-logic-${idx}" style="display:none;">
+        <input type="text" name="custom_logic_${idx}" class="form-control" placeholder="Custom logic">
+      </div>`;
+    container.appendChild(logicRow);
+  }
+
+  const block = document.createElement("div");
+  block.className = "row mb-4 condition-block align-items-end";
+  block.innerHTML = `
+    <div class="col-md-4">
+      <label class="form-label">Condition Source</label>
+      <select name="feature_${idx}" class="form-select feature-select" required>
+        ${FEATURES.map(f => `<option value="${f.name}">${f.name}</option>`).join("")}
+      </select>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">Condition</label>
+      <div id="binning-block-${idx}"></div>
+    </div>
+    <div class="col-md-2 text-end">
+      <button type="button" class="btn btn-outline-danger btn-sm remove-condition">Delete</button>
+    </div>`;
+  container.appendChild(block);
+
+  conditionIndex++;
+  document.getElementById("total_conditions").value = conditionIndex;
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  {% for cond in conditions %}
+    {% if cond.feature != 'ground_truth_true' and cond.feature != 'ground_truth_false' and cond.feature != 'predicted_true' and cond.feature != 'predicted_false' %}
+      renderBinningField("binning-block-{{ forloop.counter0 }}", "{{ cond.feature|escapejs }}", "{{ cond.binning|escapejs }}");
+    {% endif %}
+  {% endfor %}
+
+  const probSelect = document.getElementById("probability-type");
+  const toggleGroup = document.getElementById("label-toggle-group");
+  const labelButtons = document.querySelectorAll(".label-toggle");
+  const labelInput = document.getElementById("label_condition");
+
+  function updateToggleVisibility() {
+    const val = probSelect.value;
+    toggleGroup.style.display = val ? "block" : "none";
+    const type = val.startsWith("predicted") ? "ground_truth" : "predicted";
+
+    labelButtons.forEach(btn => {
+      const isAllowed = btn.dataset.type === type;
+      btn.style.display = isAllowed ? "inline-block" : "none";
+      btn.classList.remove("active");
+    });
+
+    labelInput.value = "";
+  }
+
+  labelButtons.forEach(btn => {
+    btn.addEventListener("click", function () {
+      const selected = btn.dataset.value;
+      const container = document.getElementById("conditions-container");
+
+      if (btn.classList.contains("active")) {
+        labelInput.value = "";
+        btn.classList.remove("active");
+
+        // Remove only label-injected block (first + logic before it)
+        const blocks = container.querySelectorAll(".condition-block");
+        if (blocks.length > 0) {
+          const logic = blocks[0].previousElementSibling;
+          if (logic && logic.classList.contains("logic-block")) logic.remove();
+          blocks[0].remove();
+          conditionIndex--;
+          document.getElementById("total_conditions").value = conditionIndex;
+        }
+      } else {
+        labelButtons.forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        labelInput.value = selected;
+
+        addCondition(true);
+      }
+    });
+  });
+
+  document.addEventListener("click", function (e) {
+    if (e.target.classList.contains("remove-condition")) {
+      const block = e.target.closest(".condition-block");
+      const logic = block.previousElementSibling;
+      if (logic && logic.classList.contains("logic-block")) logic.remove();
+      block.remove();
+      conditionIndex--;
+      document.getElementById("total_conditions").value = conditionIndex;
+    }
+  });
+
+  document.addEventListener("change", function (e) {
+    if (e.target.classList.contains("feature-select")) {
+      const idx = e.target.name.split("_")[1];
+      renderBinningField(`binning-block-${idx}`, e.target.value);
+    }
+    if (e.target.classList.contains("logic-select")) {
+      const idx = e.target.dataset.index;
+      document.getElementById(`custom-logic-${idx}`).style.display = e.target.value === "CUSTOM" ? "block" : "none";
+    }
+  });
+
+  probSelect.addEventListener("change", () => {
+    labelButtons.forEach(b => b.classList.remove("active"));
+    labelInput.value = "";
+    updateToggleVisibility();
+  });
+
+  updateToggleVisibility();
+});
+</script>
+{% endblock %}

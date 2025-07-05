@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Create Custom Fairness Metric | CMD{% endblock %}
+
+{% block content %}
+<div class="page-wrapper d-flex align-items-center justify-content-center">
+    <div class="text-center px-4" style="max-width: 800px;">
+        <h4 class="fw-bold mb-4">Design Your Own Fairness Metric</h4>
+        <p class="lead">You will create a custom fairness metric by combining probability conditions across multiple steps.</p>
+        <ol class="text-start mt-3">
+            <li>Choose how you'd like to construct your metric: Combine or Compare</li>
+            <li>Build your probability cards one by one</li>
+            <li>Add logical connectors between the cards</li>
+            <li>Set a global threshold and finalize</li>
+        </ol>
+
+        <a href="{% url 'custom_own_select_mode' staging_id=staging_id %}" class="btn btn-success rounded-pill px-5 py-3 fs-5 mt-4">Next</a>
+    </div>
+</div>
+{% endblock %}

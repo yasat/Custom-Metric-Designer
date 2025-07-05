@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% load custom_filters %}
+{% block title %}Final Review | CMD{% endblock %}
+
+{% block content %}
+<style>
+    .page-wrapper {
+        display: flex;
+        flex-direction: column;
+        min-height: calc(100vh - 300px);
+    }
+
+    .review-container {
+        flex: 1;
+        display: flex;
+        align-items: flex-start;
+    }
+
+    .review-wrapper {
+        width: 100%;
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+
+    .condition-box {
+        background-color: #f8f9fa;
+        border: 1px solid #ddd;
+        border-radius: 0.5rem;
+        padding: 0.75rem 1rem;
+        height: 100%;
+    }
+
+    .text-muted-small {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+</style>
+
+<div class="page-wrapper">
+    <div class="review-container">
+        <div class="review-wrapper">
+            <h4 class="fw-bold mb-3">Final Review</h4>
+
+            <div class="mb-3">
+                <strong>Metric Name:</strong> {{ metric_name }}
+            </div>
+
+            <div class="mb-3">
+                <strong>Threshold:</strong> {{ threshold }}%
+            </div>
+
+            <hr class="my-4">
+
+            {% for card in cards %}
+                <div class="border p-3 mb-4 rounded bg-light">
+                    <div class="mb-2">
+                        <span class="badge bg-success text-light me-2">
+                            {{ label_lookup|dict_get:card.probability_type }}
+                        </span>
+                    </div>
+
+                    {% if card.conditions.exists %}
+                        <div class="row">
+                            {% for cond in card.conditions.all %}
+                                <div class="col-md-4 mb-3">
+                                    <div class="condition-box h-100">
+                                        {% if cond.logic_with_next and not forloop.first %}
+                                            <div class="text-muted small mb-1">Logic: {{ cond.logic_with_next }}</div>
+                                        {% endif %}
+                                        <strong>{{ cond.feature }}</strong><br>
+                                        <span class="text-muted">{{ cond.binning }}</span>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted mt-2 mb-0">No conditions defined.</p>
+                    {% endif %}
+                </div>
+
+                {% if not forloop.last %}
+                    <div class="text-center text-muted mb-4">
+                        <strong class="text-uppercase small">{{ card.boolean_operator }}</strong>
+                    </div>
+                {% endif %}
+            {% endfor %}
+
+            <div class="text-center mt-5">
+                <a href="{% url 'custom_own_logic_review' staging_id=staging_id %}" class="btn btn-outline-secondary rounded-pill px-5 py-3 fs-5 me-3">
+                    Edit
+                </a>
+                <a href="{% url 'home' %}" class="btn btn-success rounded-pill px-5 py-3 fs-5">
+                    Go Home
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

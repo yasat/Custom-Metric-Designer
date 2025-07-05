@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load custom_filters %}
+{% block title %}Review All Probability Cards | CMD{% endblock %}
+
+{% block content %}
+<h4 class="fw-bold mb-4">Review & Connect Probability Cards</h4>
+
+<form method="post">
+  {% csrf_token %}
+
+  {% for card in cards %}
+    <div class="border p-3 mb-3 rounded bg-light">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <strong>Card {{ forloop.counter }}</strong>:
+            <span class="badge bg-success" style="font-size: 0.95em;">
+                {{ label_lookup|dict_get:card.probability_type }}
+            </span>
+        </div>
+        <div>
+          <a href="{% url 'custom_own_card_edit' staging_id=staging_id card_id=card.id %}" class="btn btn-sm btn-outline-primary">Edit</a>
+          <a href="{% url 'design_metric_delete' staging_id=staging_id %}?delete={{ card.id }}" class="btn btn-sm btn-outline-danger">Delete</a>
+        </div>
+      </div>
+
+      {% if card.conditions.exists %}
+        <div class="mt-3 mb-0 d-flex flex-wrap align-items-center gap-2">
+          {% for cond in card.conditions.all %}
+            {% if not forloop.first %}
+              <span class="text-uppercase small fw-semibold text-secondary">{{ cond.logic_with_next }}</span>
+            {% endif %}
+            <span class="badge bg-primary text-wrap" style="font-size: 0.9em;">
+              {{ cond.binning }}
+            </span>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-muted mt-3 mb-0">No conditions defined.</p>
+      {% endif %}
+    </div>
+
+    {% if not forloop.last %}
+      <div class="my-4 d-flex flex-column align-items-center">
+        <label for="operator_{{ card.id }}" class="form-label text-center mb-2 fw-semibold">Operator to connect next card</label>
+        <div class="d-flex gap-3 justify-content-center flex-wrap">
+          <select name="operator_{{ card.id }}" class="form-select operator-select" data-id="{{ card.id }}" style="width: 200px;">
+            <option value="AND" {% if card.boolean_operator == "AND" %}selected{% endif %}>AND</option>
+            <option value="OR" {% if card.boolean_operator == "OR" %}selected{% endif %}>OR</option>
+            <option value="CUSTOM" {% if card.boolean_operator != "AND" and card.boolean_operator != "OR" and card.boolean_operator %}selected{% endif %}>Custom</option>
+          </select>
+          <input type="text" name="custom_operator_{{ card.id }}" class="form-control"
+                 id="custom-operator-{{ card.id }}"
+                 style="{% if card.boolean_operator != 'AND' and card.boolean_operator != 'OR' and card.boolean_operator %}display:block;{% else %}display:none;{% endif %}; width: 200px;"
+                 value="{% if card.boolean_operator != 'AND' and card.boolean_operator != 'OR' and card.boolean_operator %}{{ card.boolean_operator }}{% endif %}">
+        </div>
+      </div>
+    {% endif %}
+  {% endfor %}
+
+  <div class="text-center mt-5">
+    <a href="{% url 'custom_own_card_new' staging_id=staging_id %}" class="btn btn-outline-secondary rounded-pill px-5 py-3 fs-5 me-3">
+      Add New Probability Card
+    </a>
+    <button type="submit" class="btn btn-success rounded-pill px-5 py-3 fs-5">
+      Set Threshold
+    </button>
+  </div>
+</form>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".operator-select").forEach(select => {
+    select.addEventListener("change", function () {
+      const cardId = this.dataset.id;
+      const customBox = document.getElementById("custom-operator-" + cardId);
+      customBox.style.display = this.value === "CUSTOM" ? "block" : "none";
+    });
+  });
+});
+</script>
+{% endblock %}
