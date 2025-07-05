@@ -50,16 +50,13 @@
 
 <div class="page-wrapper">
 
-    <!-- Centered Form Content -->
     <div class="form-container">
         <div class="form-wrapper">
-            <!-- Question text -->
             <div class="mb-4">
                 <h4 class="fw-bold mb-2">1. Fairness Category</h4>
                 <p class="text-muted mb-4">Who do you want to protect?</p>
             </div>
 
-            <!-- Form -->
             <form method="post">
                 {% csrf_token %}
                 <div class="row gx-5 gy-4">
@@ -83,10 +80,8 @@
                     </div>
                 </div>
 
-                <!-- Divider -->
                 <hr class="my-4">
 
-                <!-- Button -->
                 <div class="text-center">
                     <button type="submit" class="btn btn-success rounded-pill px-5 py-3 fs-5">
                         Next

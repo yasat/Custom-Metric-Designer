@@ -1,9 +1,13 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import Staging, DesignExistingMetrics, DesignCombineExistingMetricsMain, DesignCombineExistingMetricsSub
+from .models import Staging, DesignExistingMetrics, DesignCombineMetrics
 from django.http import HttpResponseBadRequest
 
 from .features_data import FEATURES
 from .metrics_data import METRICS
+
+from .utils import get_design_model
+
+from collections import defaultdict
 
 def home(request):
 
@@ -156,6 +160,20 @@ def design_custom_own(request, staging_id):
 
     return render(request, "under_construction.html")
 
+def design_combine_existing_intro(request, staging_id):
+    staging = get_object_or_404(Staging, id=staging_id)
+
+    if not request.session.get(f'design_id_{staging_id}'):
+        design = DesignCombineMetrics.objects.create(sid=staging, order=0)
+        print('here',design)
+        request.session[f'design_id_{staging_id}'] = design.id
+    
+    print(request.session[f'design_id_{staging_id}'])
+
+    return render(request, "design_combine_existing_intro.html", {
+        "staging_id": staging.id
+    })
+
 def design_existing_intro(request, staging_id):
 
     staging = get_object_or_404(Staging, id=staging_id)
@@ -177,24 +195,26 @@ def design_existing_intro(request, staging_id):
         "breadcrumb": breadcrumb,
     })
 
-def design_existing_features(request, staging_id):
-
+def design_metric_features(request, staging_id):
     staging = get_object_or_404(Staging, id=staging_id)
+    Model = get_design_model(staging)
 
     edit_id = request.GET.get("edit")
     if edit_id:
-        design = get_object_or_404(DesignExistingMetrics, id=edit_id)
+        design = get_object_or_404(Model, id=edit_id)
         request.session[f'design_id_{staging_id}'] = design.id
     else:
-        design_id = request.session.get(f'design_id_{staging_id}')
-        design = get_object_or_404(DesignExistingMetrics, id=design_id)
+        design_id = request.session[f'design_id_{staging_id}']
+        print(design_id)
+        design = get_object_or_404(Model, id=design_id)
+        
 
     if request.method == "POST":
         features_str = request.POST.get("features")
         if features_str:
             design.features = features_str
             design.save()
-            return redirect('design_existing_select_metric', staging_id=staging_id)
+            return redirect('design_metric_select_metric', staging_id=staging_id)
 
     breadcrumb = [
         {"label": staging.category, "url": "fairness_category_with_id"},
@@ -202,14 +222,10 @@ def design_existing_features(request, staging_id):
         {"label": staging.metric_type, "url": "metric_type"},
     ]
 
-    if design.features != None:
-        breadcrumb_cm = [
-            {"label": design.features, "url": "design_existing_features"},
-        ]
+    if design.features:
+        breadcrumb_cm = [{"label": design.features, "url": "design_metric_features"}]
     else:
-        breadcrumb_cm = [
-            {"label": "Select Features", "url": None},
-        ]
+        breadcrumb_cm = [{"label": "Select Features", "url": None}]
 
     selected = []
     if design.features:
@@ -223,18 +239,18 @@ def design_existing_features(request, staging_id):
         "selected_features": selected,
     })
 
-def design_existing_select_metric(request, staging_id):
-
+def design_metric_select_metric(request, staging_id):
     staging = get_object_or_404(Staging, id=staging_id)
+    Model = get_design_model(staging)
     design_id = request.session.get(f'design_id_{staging_id}')
-    design = get_object_or_404(DesignExistingMetrics, id=design_id)
+    design = get_object_or_404(Model, id=design_id)
 
     if request.method == "POST":
         selected_metric = request.POST.get("selected_metric")
         if selected_metric:
             design.metric = selected_metric
             design.save()
-            return redirect('design_existing_threshold', staging_id=staging_id)
+            return redirect('design_metric_threshold', staging_id=staging_id)
 
     breadcrumb = [
         {"label": staging.category, "url": "fairness_category_with_id"},
@@ -242,46 +258,43 @@ def design_existing_select_metric(request, staging_id):
         {"label": staging.metric_type, "url": "metric_type"},
     ]
 
-    if design.metric != None:
+    if design.metric:
         breadcrumb_cm = [
-            {"label": design.features, "url": "design_existing_features"},
-            {"label": design.metric, "url": "design_existing_select_metric"},
+            {"label": design.features, "url": "design_metric_features"},
+            {"label": design.metric, "url": "design_metric_select_metric"},
         ]
     else:
         breadcrumb_cm = [
-            {"label": design.features, "url": "design_existing_features"},
+            {"label": design.features, "url": "design_metric_features"},
             {"label": "Select Metric", "url": None},
         ]
 
-    selected_metric_id = design.metric if design.metric else None
-
-    if(staging.category == "individual"):
-        metrics = [metric for metric in METRICS if metric['category'] == "Individual"]
-    elif(staging.category == "group"):
-        metrics = [metric for metric in METRICS if metric['category'] == "Group"]
+    if staging.category == "individual":
+        metrics = [m for m in METRICS if m['category'] == "Individual"]
+    elif staging.category == "group":
+        metrics = [m for m in METRICS if m['category'] == "Group"]
     else:
         metrics = METRICS
 
     return render(request, "design_existing_select_metric.html", {
         "staging_id": staging_id,
         "breadcrumb": breadcrumb,
-        "metrics": metrics,
         "breadcrumb_cm": breadcrumb_cm,
-        "selected_metric_id": selected_metric_id,
+        "metrics": metrics,
+        "selected_metric_id": design.metric,
     })
 
-def design_existing_threshold(request, staging_id):
-
+def design_metric_threshold(request, staging_id):
     staging = get_object_or_404(Staging, id=staging_id)
+    Model = get_design_model(staging)
     design_id = request.session.get(f'design_id_{staging_id}')
-    design = get_object_or_404(DesignExistingMetrics, id=design_id)
+    design = get_object_or_404(Model, id=design_id)
 
     if request.method == "POST":
         threshold = request.POST.get("threshold")
-
         design.threshold = threshold
         design.save()
-        return redirect('design_existing_summary', staging_id=staging_id)
+        return redirect('design_metric_summary', staging_id=staging_id)
 
     breadcrumb = [
         {"label": staging.category, "url": "fairness_category_with_id"},
@@ -289,43 +302,43 @@ def design_existing_threshold(request, staging_id):
         {"label": staging.metric_type, "url": "metric_type"},
     ]
 
-    if design.threshold != None:
+    if design.threshold:
         breadcrumb_cm = [
-            {"label": design.features, "url": "design_existing_features"},
-            {"label": design.metric, "url": "design_existing_select_metric"},
-            {"label": design.threshold, "url": "design_existing_threshold"},
+            {"label": design.features, "url": "design_metric_features"},
+            {"label": design.metric, "url": "design_metric_select_metric"},
+            {"label": f"{design.threshold}%", "url": "design_metric_threshold"},
         ]
     else:
         breadcrumb_cm = [
-            {"label": design.features, "url": "design_existing_features"},
-            {"label": design.metric, "url": "design_existing_select_metric"},
+            {"label": design.features, "url": "design_metric_features"},
+            {"label": design.metric, "url": "design_metric_select_metric"},
             {"label": "Set a Threshold", "url": None},
         ]
-    
-    threshold = design.threshold if design.threshold is not None else ""
 
     return render(request, "design_existing_threshold.html", {
         "staging_id": staging_id,
         "breadcrumb": breadcrumb,
         "breadcrumb_cm": breadcrumb_cm,
-        "threshold": threshold,
+        "threshold": design.threshold if design.threshold is not None else "",
     })
 
-def design_existing_summary(request, staging_id):
+def design_metric_summary(request, staging_id):
     staging = get_object_or_404(Staging, id=staging_id)
-    design_id = request.session.get(f'design_id_{staging_id}')
-    design = get_object_or_404(DesignExistingMetrics, id=design_id)
+    Model = get_design_model(staging)
 
-    # Split and clean feature strings like: "Age [18-25], Gender [Female]"
+    design_id = request.session.get(f'design_id_{staging_id}')
+    design = get_object_or_404(Model, id=design_id)
+
     feature_items = []
-    for item in design.features.split(','):
-        item = item.strip()
-        if '[' in item and ']' in item:
-            name = item.split('[')[0].strip()
-            binning = item.split('[')[1].replace(']', '').strip()
-            feature_items.append({'name': name, 'binning': binning})
-        elif item:
-            feature_items.append({'name': item, 'binning': ''})
+    if design.features:
+        for item in design.features.split(','):
+            item = item.strip()
+            if '[' in item and ']' in item:
+                name = item.split('[')[0].strip()
+                binning = item.split('[')[1].replace(']', '').strip()
+                feature_items.append({'name': name, 'binning': binning})
+            elif item:
+                feature_items.append({'name': item, 'binning': ''})
 
     breadcrumb = [
         {"label": staging.category, "url": "fairness_category_with_id"},
@@ -334,27 +347,37 @@ def design_existing_summary(request, staging_id):
     ]
 
     breadcrumb_cm = [
-        {"label": design.features, "url": "design_existing_features"},
-        {"label": design.metric, "url": "design_existing_select_metric"},
-        {"label": design.threshold, "url": "design_existing_threshold"},
+        {"label": design.features, "url": "design_metric_features"},
+        {"label": design.metric, "url": "design_metric_select_metric"},
+        {"label": f"{design.threshold}%", "url": "design_metric_threshold"},
     ]
 
     return render(request, "design_existing_summary.html", {
         "staging_id": staging.id,
         "breadcrumb": breadcrumb,
+        "breadcrumb_cm": breadcrumb_cm,
         "features": feature_items,
         "metric": design.metric,
         "threshold": design.threshold,
-        "breadcrumb_cm": breadcrumb_cm,
+        "is_combined": staging.metric_type == "combine_existing",
     })
 
-def design_existing_save_new(request, staging_id):
+def design_save_new(request, staging_id):
     if request.method == "POST":
-        # Create a new row for this staging_id (empty at first)
         staging = get_object_or_404(Staging, id=staging_id)
-        new_design = DesignExistingMetrics.objects.create(sid=staging)
+        Model = get_design_model(staging)
+
+        if staging.metric_type == "combine_existing":
+            existing = Model.objects.filter(sid=staging, delete_flag=False)
+            order = existing.count()
+            new_design = Model.objects.create(sid=staging, order=order)
+        else:
+            new_design = Model.objects.create(sid=staging)
+
         request.session[f'design_id_{staging_id}'] = new_design.id
-        return redirect('design_existing_features', staging_id=staging_id)
+
+        return redirect('design_metric_features', staging_id=staging_id)
+
     return HttpResponseBadRequest("Invalid request method")
 
 def design_existing_review_all(request, staging_id):
@@ -362,277 +385,12 @@ def design_existing_review_all(request, staging_id):
 
     designs_raw = DesignExistingMetrics.objects.filter(sid=staging, delete_flag=False)
 
-    # Split features into list
     designs = []
     for design in designs_raw:
-        feature_list = [f.strip() for f in design.features.split(",") if f.strip()]
-        designs.append({
-            "metric": design.metric,
-            "threshold": design.threshold,
-            "features": feature_list,
-            "id": design.id
-        })
-
-    breadcrumb = [
-        {"label": staging.category, "url": "fairness_category_with_id"},
-        {"label": staging.perspective, "url": "fairness_perspective"},
-        {"label": staging.metric_type, "url": "metric_type"},
-        {"label": "Review All Metrics", "url": None}
-    ]
-
-    return render(request, "design_existing_review_all.html", {
-        "designs": designs,
-        "staging_id": staging.id,
-        "breadcrumb": breadcrumb,
-    })
-
-def design_existing_delete(request, staging_id):
-    staging = get_object_or_404(Staging, id=staging_id)
-
-    delete_id = request.GET.get("delete")
-    if delete_id:
-        design = get_object_or_404(DesignExistingMetrics, id=delete_id)
-        design.delete_flag = True
-        design.save()
-    
-    return redirect('design_existing_review_all', staging_id=staging_id)
-
-
-
-def design_combine_existing(request, staging_id):
-    
-    staging = get_object_or_404(Staging, id=staging_id)
-
-    if not request.session.get(f'design_id_{staging_id}'):
-        design = DesignCombineExistingMetricsMain.objects.create(sid=staging)
-        request.session[f'design_id_{staging_id}'] = design.id
-    else:
-        design = get_object_or_404(DesignCombineExistingMetricsMain, id=request.session[f'design_id_{staging_id}'])
-    
-    if not request.session.get(f'combine_id_{design.id}'):
-        combine = DesignCombineExistingMetricsSub.objects.create(group_id=design.id)
-        combine.priority_id = 1
-        combine.save()
-        request.session[f'combine_id_{design.id}'] = combine.id
-    else:
-        combine = get_object_or_404(DesignCombineExistingMetricsSub, id=request.session[f'combine_id_{design.id}'])
-
-    breadcrumb = [
-        {"label": staging.category, "url": "fairness_category_with_id"},
-        {"label": staging.perspective, "url": "fairness_perspective"},
-        {"label": staging.metric_type, "url": "metric_type"},
-    ]
-
-    return render(request, "design_combine_existing_intro.html", {
-        "staging_id": staging_id,
-        "design_id": combine.id,
-        "breadcrumb": breadcrumb,
-    })
-
-def combine_existing_features(request, staging_id, design_id):
-
-    staging = get_object_or_404(Staging, id=staging_id)
-
-    edit_id = request.GET.get("edit")
-    if edit_id:
-        design = get_object_or_404(DesignCombineExistingMetricsSub, id=edit_id)
-        request.session[f'combine_id_{design_id}'] = design.id
-    else:
-        if not request.session.get(f'combine_id_{design.id}'):
-            design = DesignCombineExistingMetricsSub.objects.create(group_id=design.id)
-            design.priority_id = 1
-            design.save()
-            request.session[f'combine_id_{design.id}'] = design.id
+        if design.features:
+            feature_list = [f.strip() for f in design.features.split(",") if f.strip()]
         else:
-            design = get_object_or_404(DesignCombineExistingMetricsSub, id=request.session[f'combine_id_{design.id}'])
-
-    if request.method == "POST":
-        features_str = request.POST.get("features")
-        if features_str:
-            design.features = features_str
-            design.save()
-            return redirect('design_combine_existing_select_metric', staging_id=staging_id, design_id=design_id)
-
-    breadcrumb = [
-        {"label": staging.category, "url": "fairness_category_with_id"},
-        {"label": staging.perspective, "url": "fairness_perspective"},
-        {"label": staging.metric_type, "url": "metric_type"},
-    ]
-
-    if design.features != None:
-        breadcrumb_cm = [
-            {"label": design.features, "url": "design_combine_existing_features"},
-        ]
-    else:
-        breadcrumb_cm = [
-            {"label": "Select Features", "url": None},
-        ]
-
-    selected = []
-    if design.features:
-        selected = [s.strip() for s in design.features.split(",") if s.strip()]
-
-    return render(request, "combine_existing_features.html", {
-        "features": FEATURES,
-        "staging_id": staging_id,
-        "design_id": design.id,
-        "breadcrumb": breadcrumb,
-        "breadcrumb_cm": breadcrumb_cm,
-        "selected_features": selected,
-    })
-
-def combine_existing_select_metric(request, staging_id, design_id):
-
-    staging = get_object_or_404(Staging, id=staging_id)
-    design_id = request.session.get(f'combine_id_{design_id}')
-    print(design_id)
-    design = get_object_or_404(DesignCombineExistingMetricsSub, id=design_id)
-
-    if request.method == "POST":
-        selected_metric = request.POST.get("selected_metric")
-        if selected_metric:
-            design.metric = selected_metric
-            design.save()
-            return redirect('combine_existing_threshold', staging_id=staging_id, design_id=design_id)
-
-    breadcrumb = [
-        {"label": staging.category, "url": "fairness_category_with_id"},
-        {"label": staging.perspective, "url": "fairness_perspective"},
-        {"label": staging.metric_type, "url": "metric_type"},
-    ]
-
-    if design.metric != None:
-        breadcrumb_cm = [
-            {"label": design.features, "url": "design_combine_existing_features"},
-            {"label": design.metric, "url": "design_combine_existing_select_metric"},
-        ]
-    else:
-        breadcrumb_cm = [
-            {"label": design.features, "url": "design_combine_existing_features"},
-            {"label": "Select Metric", "url": None},
-        ]
-
-    selected_metric_id = design.metric if design.metric else None
-
-    if(staging.category == "individual"):
-        metrics = [metric for metric in METRICS if metric['category'] == "Individual"]
-    elif(staging.category == "group"):
-        metrics = [metric for metric in METRICS if metric['category'] == "Group"]
-    else:
-        metrics = METRICS
-
-    return render(request, "combine_existing_select_metric.html", {
-        "staging_id": staging_id,
-        "design_id": design.id,
-        "breadcrumb": breadcrumb,
-        "metrics": metrics,
-        "breadcrumb_cm": breadcrumb_cm,
-        "selected_metric_id": selected_metric_id,
-    })
-
-def combine_existing_threshold(request, staging_id, design_id):
-
-    staging = get_object_or_404(Staging, id=staging_id)
-    design_id = request.session.get(f'combine_id_{design_id}')
-    design = get_object_or_404(DesignCombineExistingMetricsSub, id=design_id)
-
-    if request.method == "POST":
-        threshold = request.POST.get("threshold")
-
-        design.threshold = threshold
-        design.save()
-        return redirect('combine_existing_summary', staging_id=staging_id, design_id=design_id)
-
-    breadcrumb = [
-        {"label": staging.category, "url": "fairness_category_with_id"},
-        {"label": staging.perspective, "url": "fairness_perspective"},
-        {"label": staging.metric_type, "url": "metric_type"},
-    ]
-
-    if design.threshold != None:
-        breadcrumb_cm = [
-            {"label": design.features, "url": "design_combine_existing_features"},
-            {"label": design.metric, "url": "design_combine_existing_select_metric"},
-            {"label": design.threshold, "url": "combine_existing_threshold"},
-        ]
-    else:
-        breadcrumb_cm = [
-            {"label": design.features, "url": "design_combine_existing_features"},
-            {"label": design.metric, "url": "design_combine_existing_select_metric"},
-            {"label": "Set a Threshold", "url": None},
-        ]
-    
-    threshold = design.threshold if design.threshold is not None else ""
-
-    return render(request, "combine_existing_threshold.html", {
-        "staging_id": staging_id,
-        "design_id": design.id,
-        "breadcrumb": breadcrumb,
-        "breadcrumb_cm": breadcrumb_cm,
-        "threshold": threshold,
-    })
-
-def combine_existing_summary(request, staging_id, design_id):
-    staging = get_object_or_404(Staging, id=staging_id)
-    design_id = request.session.get(f'combine_id_{design_id}')
-    design = get_object_or_404(DesignCombineExistingMetricsSub, id=design_id)
-
-    # Split and clean feature strings like: "Age [18-25], Gender [Female]"
-    feature_items = []
-    for item in design.features.split(','):
-        item = item.strip()
-        if '[' in item and ']' in item:
-            name = item.split('[')[0].strip()
-            binning = item.split('[')[1].replace(']', '').strip()
-            feature_items.append({'name': name, 'binning': binning})
-        elif item:
-            feature_items.append({'name': item, 'binning': ''})
-
-    breadcrumb = [
-        {"label": staging.category, "url": "fairness_category_with_id"},
-        {"label": staging.perspective, "url": "fairness_perspective"},
-        {"label": staging.metric_type, "url": "metric_type"},
-    ]
-
-    breadcrumb_cm = [
-        {"label": design.features, "url": "design_combine_existing_features"},
-            {"label": design.metric, "url": "design_combine_existing_select_metric"},
-            {"label": design.threshold, "url": "combine_existing_threshold"},
-    ]
-
-    return render(request, "combine_existing_summary.html", {
-        "staging_id": staging.id,
-        "design_id": design.id,
-        "breadcrumb": breadcrumb,
-        "features": feature_items,
-        "metric": design.metric,
-        "threshold": design.threshold,
-        "breadcrumb_cm": breadcrumb_cm,
-    })
-
-def combine_existing_save_new(request, staging_id, design_id):
-    if request.method == "POST":
-        # Create a new row for this staging_id (empty at first)
-        staging = get_object_or_404(Staging, id=staging_id)
-        design_id = request.session.get(f'combine_id_{design_id}')
-        design = get_object_or_404(DesignCombineExistingMetricsSub, id=design_id)
-
-        priority_id = len(DesignCombineExistingMetricsSub.objects.filter(group_id=design.group_id)) + 1
-
-        new_design = DesignCombineExistingMetricsSub.objects.create(group_id=design.group_id, priority_id=priority_id)
-        request.session[f'combine_id_{design_id}'] = new_design.id
-        return redirect('design_combine_existing_features', staging_id=staging_id, design_id=design_id)
-    return HttpResponseBadRequest("Invalid request method")
-
-def combine_existing_review_all(request, staging_id, design_id):
-    staging = get_object_or_404(Staging, id=staging_id)
-
-    designs_raw = DesignExistingMetrics.objects.filter(sid=staging, delete_flag=False)
-
-    # Split features into list
-    designs = []
-    for design in designs_raw:
-        feature_list = [f.strip() for f in design.features.split(",") if f.strip()]
+            feature_list = []
         designs.append({
             "metric": design.metric,
             "threshold": design.threshold,
@@ -653,13 +411,112 @@ def combine_existing_review_all(request, staging_id, design_id):
         "breadcrumb": breadcrumb,
     })
 
-def combine_existing_delete(request, staging_id, design_id):
+def design_metric_delete(request, staging_id):
     staging = get_object_or_404(Staging, id=staging_id)
+    Model = get_design_model(staging)
 
     delete_id = request.GET.get("delete")
     if delete_id:
-        design = get_object_or_404(DesignExistingMetrics, id=delete_id)
+        design = get_object_or_404(Model, id=delete_id)
         design.delete_flag = True
         design.save()
-    
-    return redirect('design_existing_review_all', staging_id=staging_id)
+
+    if staging.metric_type == "combine_existing":
+        return redirect('design_combine_existing_review_all', staging_id=staging_id)
+    else:
+        return redirect('design_existing_review_all', staging_id=staging_id)
+
+def design_combine_existing_review_all(request, staging_id):
+    staging = get_object_or_404(Staging, id=staging_id)
+
+    if request.method == "POST":
+        for key, value in request.POST.items():
+            if key.startswith("weight_"):
+                design_id = key.replace("weight_", "")
+                try:
+                    design = DesignCombineMetrics.objects.get(id=design_id, sid=staging)
+                    design.weight = float(value)
+                    design.save()
+                except (ValueError, DesignCombineMetrics.DoesNotExist):
+                    continue
+
+            elif key.startswith("operator_"):
+                design_id = key.replace("operator_", "")
+                custom_key = f"custom_operator_{design_id}"
+                custom_value = request.POST.get(custom_key, "").strip()
+
+                try:
+                    design = DesignCombineMetrics.objects.get(id=design_id, sid=staging)
+                    design.boolean_operator = custom_value if value == "OTHER" and custom_value else value
+                    design.save()
+                except DesignCombineMetrics.DoesNotExist:
+                    continue
+
+            elif key.startswith("group_"):
+                design_id = key.replace("group_", "")
+                try:
+                    design = DesignCombineMetrics.objects.get(id=design_id, sid=staging)
+                    if value.strip() == "":
+                        design.group_level = None
+                    else:
+                        design.group_level = int(value)
+                    design.save()
+                except (ValueError, DesignCombineMetrics.DoesNotExist):
+                    continue
+
+        return redirect('design_combine_existing_final_summary', staging_id=staging_id)
+
+    designs_raw = DesignCombineMetrics.objects.filter(sid=staging, delete_flag=False).order_by('order')
+
+    designs = []
+    has_grouping = False
+
+    for design in designs_raw:
+        feature_list = [f.strip() for f in design.features.split(",") if f.strip()]
+        if design.group_level is not None:
+            has_grouping = True
+
+        designs.append({
+            "id": design.id,
+            "features": feature_list,
+            "metric": design.metric,
+            "threshold": design.threshold,
+            "weight": design.weight,
+            "operator": design.boolean_operator,
+            "group_level": design.group_level,
+        })
+
+    return render(request, "design_combine_existing_review_all.html", {
+        "designs": designs,
+        "staging_id": staging.id,
+        "has_grouping": has_grouping,
+    })
+
+def design_combine_existing_final_summary(request, staging_id):
+    staging = get_object_or_404(Staging, id=staging_id)
+
+    designs = DesignCombineMetrics.objects.filter(sid=staging, delete_flag=False).order_by('order')
+
+    grouped_metrics = defaultdict(list)
+    group_levels_present = []
+
+    for design in designs:
+        group = design.group_level if design.group_level else 1
+        group_levels_present.append(group)
+
+        features_str = ", ".join([f.strip() for f in design.features.split(",") if f.strip()])
+        expression = f"({design.weight:.1f}% × ({features_str}, {design.metric}, {design.threshold}%))"
+
+        grouped_metrics[group].append({
+            "text": expression,
+            "operator": design.boolean_operator or "AND"
+        })
+
+    sorted_groups = sorted(set(group_levels_present))
+
+    return render(request, "design_combine_existing_final_summary.html", {
+        "staging_id": staging_id,
+        "grouped_metrics": [grouped_metrics[g] for g in sorted_groups],
+        "group_levels": sorted_groups,
+        "has_if_not": len(set(group_levels_present)) > 1,
+    })

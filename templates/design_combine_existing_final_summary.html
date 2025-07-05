@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Final Combined Fairness Metric | CMD{% endblock %}
+
+{% block content %}
+<style>
+    .expression-line {
+        text-align: center;
+        margin-bottom: 0.3rem;
+    }
+
+    .operator-inline {
+        text-align: center;
+        font-weight: 600;
+        color: #333;
+        margin: 0.3rem 0;
+    }
+
+    .expression-card {
+        background-color: #f4f6f8;
+        border: 1px solid #ccc;
+        border-radius: 0.5rem;
+        padding: 1.2rem;
+        font-family: monospace;
+        font-size: 1rem;
+    }
+    .logic-separator {
+        text-align: center;
+        font-weight: bold;
+        font-size: 1.2rem;
+        color: #444;
+        margin: 1.5rem 0;
+        width: 100%;
+        display: block;
+    }
+</style>
+
+<div class="page-wrapper">
+    <div class="summary-container">
+        <div class="summary-wrapper">
+            <h4 class="fw-bold mb-4">Final Combined Fairness Metric</h4>
+
+            {% for group in grouped_metrics %}
+                {% if has_if_not and not forloop.last %}
+                    <div class="logic-separator">IF</div>
+                {% endif %}
+                <div class="level-label">Level {{ forloop.counter }}</div>
+                <div class="expression-card mb-3">
+                    {% for expression in group %}
+                        <div class="expression-line">
+                            {{ expression.text }}
+                        </div>
+                        {% if not forloop.last %}
+                            <div class="operator-inline">{{ expression.operator|default:"AND" }}</div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+
+                {% if has_if_not and not forloop.last %}
+                    <div class="logic-separator">IF NOT, THEN</div>
+                {% endif %}
+            {% endfor %}
+
+            <div class="text-center mt-4">
+                <a href="{% url 'design_combine_existing_review_all' staging_id=staging_id %}" class="btn btn-outline-primary rounded-pill me-3 px-5 py-3">
+                    Edit Chain
+                </a>
+                <form action="{% url 'design_save_new' staging_id=staging_id %}" method="post" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-secondary rounded-pill px-5 py-3">
+                        Add Another Metric
+                    </button>
+                </form>
+                <a href="{% url 'home' %}" class="btn btn-success rounded-pill px-5 py-3">
+                    Finish & Return Home
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

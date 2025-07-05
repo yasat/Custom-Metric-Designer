@@ -85,13 +85,11 @@
                     {% endif %}
                 </div>
 
-                <!-- Metric -->
                 <div class="summary-item">
                     <h5>Fairness Metric</h5>
                     <p>{{ metric }}</p>
                 </div>
 
-                <!-- Threshold -->
                 <div class="summary-item">
                     <h5>Threshold</h5>
                     <p>{{ threshold }}%</p>
@@ -99,18 +97,26 @@
             </div>
 
             <div class="text-center">
-                <!-- Button 1: Save & Build Another -->
-                <form action="{% url 'design_existing_save_new' staging_id=staging_id %}" method="post" class="d-inline">
+                {% if is_combined %}
+                    <form action="{% url 'design_save_new' staging_id=staging_id %}" method="post" class="d-inline">
+                {% else %}
+                    <form action="{% url 'design_save_new' staging_id=staging_id %}" method="post" class="d-inline">
+                {% endif %}
                     {% csrf_token %}
                     <button type="submit" class="btn btn-success rounded-pill btn-start me-3">
                         Save and Build Another
                     </button>
                 </form>
 
-                <!-- Button 2: Review All Metrics -->
-                <a href="{% url 'design_existing_review_all' staging_id=staging_id %}" class="btn btn-outline-secondary rounded-pill btn-start">
-                    Review All
-                </a>
+                {% if is_combined %}
+                    <a href="{% url 'design_combine_existing_review_all' staging_id=staging_id %}" class="btn btn-outline-secondary rounded-pill btn-start">
+                        Review Chained Metrics
+                    </a>
+                {% else %}
+                    <a href="{% url 'design_existing_review_all' staging_id=staging_id %}" class="btn btn-outline-secondary rounded-pill btn-start">
+                        Review All Metrics
+                    </a>
+                {% endif %}
             </div>
         </div>
     </div>

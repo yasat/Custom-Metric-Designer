@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Staging, DesignExistingMetrics, DesignCombineExistingMetricsMain, DesignCombineExistingMetricsSub
+from .models import Staging, DesignExistingMetrics, DesignCombineMetrics
 
 @admin.register(Staging)
 class StagingAdmin(admin.ModelAdmin):
@@ -11,10 +11,6 @@ class StagingAdmin(admin.ModelAdmin):
 class DesignExistingMetricsAdmin(admin.ModelAdmin):
     list_display = ('id', 'sid', 'features', 'metric', 'threshold', 'delete_flag')
 
-@admin.register(DesignCombineExistingMetricsMain)
-class DesignCombineExistingMetricsMainAdmin(admin.ModelAdmin):
-    list_display = ('id', 'sid', 'delete_flag')
-
-@admin.register(DesignCombineExistingMetricsSub)
-class DesignCombineExistingMetricsSubAdmin(admin.ModelAdmin):
-    list_display = ('id', 'group_id', 'priority_id', 'features', 'metric', 'threshold', 'weightage', 'next_condition', 'delete_flag')
+@admin.register(DesignCombineMetrics)
+class DesignCombineMetricsAdmin(admin.ModelAdmin):
+    list_display = ('id', 'sid', 'features', 'metric', 'threshold', 'weight', 'group_level', 'boolean_operator', 'order', 'delete_flag')

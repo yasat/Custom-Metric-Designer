@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block title %}Review Chained Metrics | CMD{% endblock %}
+
+{% block content %}
+<style>
+    .feature-badge {
+        display: inline-block;
+        background-color: #e7f3ff;
+        border: 1px solid #bcdfff;
+        color: #004085;
+        padding: 0.4rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        margin: 0.2rem 0.4rem 0.4rem 0;
+    }
+
+    .review-card {
+        border: 1px solid #ccc;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        background-color: #fff;
+        height: 100%;
+    }
+</style>
+
+<div class="page-wrapper">
+    <div class="review-container">
+        <div class="review-wrapper">
+            <h4 class="fw-bold mb-4">Review and Combine Your Fairness Metrics</h4>
+
+            <div class="form-check form-switch mb-4">
+                <input class="form-check-input" type="checkbox" id="enableIfNot"
+                    {% if has_grouping %}checked{% endif %}
+                    onchange="toggleGroupInputs()">
+                <label class="form-check-label" for="enableIfNot">Enable IF NOT logic chaining</label>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+                <div class="row">
+                    {% for design in designs %}
+                    <div class="col-md-6 mb-4">
+                        <div class="review-card">
+                            <h5>Metric: {{ design.metric }}</h5>
+                            <p><strong>Threshold:</strong> {{ design.threshold }}%</p>
+                            <p><strong>Features:</strong></p>
+                            <div>
+                                {% for f in design.features %}
+                                    <span class="feature-badge">{{ f }}</span>
+                                {% endfor %}
+                            </div>
+
+                            <div class="mt-3">
+                                <label><strong>Weight (0-100):</strong></label>
+                                <input type="number" name="weight_{{ design.id }}" step="0.1" min="0" max="100"
+                                    class="form-control weight-input"
+                                    value="{{ design.weight|default_if_none:'0.0' }}">
+                            </div>
+
+                            <div class="mt-3">
+                                <label><strong>Boolean Operator:</strong></label>
+                                <select name="operator_{{ design.id }}" class="form-select operator-select"
+                                    onchange="checkOtherOption(this, '{{ design.id }}')">
+                                    <option value="AND" {% if design.operator == 'AND' %}selected{% endif %}>AND</option>
+                                    <option value="OR" {% if design.operator == 'OR' %}selected{% endif %}>OR</option>
+                                    <option value="OTHER" {% if design.operator and design.operator != 'AND' and design.operator != 'OR' %}selected{% endif %}>Other</option>
+                                </select>
+                                <input type="text" name="custom_operator_{{ design.id }}"
+                                    class="form-control mt-2 custom-operator"
+                                    style="display: {% if design.operator and design.operator != 'AND' and design.operator != 'OR' %}block{% else %}none{% endif %};"
+                                    value="{% if design.operator and design.operator != 'AND' and design.operator != 'OR' %}{{ design.operator }}{% endif %}">
+                            </div>
+
+                            <div class="mt-3 group-input" style="display: none;">
+                                <label><strong>Level (optional):</strong></label>
+                                <input type="number" name="group_{{ design.id }}" class="form-control"
+                                    value="{{ design.group_level|default_if_none:'' }}" min="1">
+                            </div>
+
+                            <div class="mt-3">
+                                <a href="{% url 'design_metric_features' staging_id=staging_id %}?edit={{ design.id }}"
+                                    class="btn btn-sm btn-outline-primary me-2">Edit</a>
+                                <a href="{% url 'design_metric_delete' staging_id=staging_id %}?delete={{ design.id }}"
+                                    class="btn btn-sm btn-danger me-2">Delete</a>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                        <p class="text-muted">No metrics have been created yet. Add one below.</p>
+                    {% endfor %}
+                </div>
+
+                <div class="text-center mt-4">
+                    <button type="submit" class="btn btn-success rounded-pill px-5 py-3">
+                        Save and Review Final Metric
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleGroupInputs() {
+        const enabled = document.getElementById('enableIfNot').checked;
+        document.querySelectorAll('.group-input').forEach(div => {
+            div.style.display = enabled ? 'block' : 'none';
+        });
+    }
+
+    function checkOtherOption(selectElem, id) {
+        const customInput = document.querySelector(`input[name="custom_operator_${id}"]`);
+        if (selectElem.value === "OTHER") {
+            customInput.style.display = 'block';
+        } else {
+            customInput.style.display = 'none';
+            customInput.value = '';
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        toggleGroupInputs();
+
+        const form = document.querySelector("form");
+        form.addEventListener("submit", function (e) {
+            const ifNotEnabled = document.getElementById('enableIfNot').checked;
+
+            const weightInputs = document.querySelectorAll(".weight-input");
+            const groupInputs = document.querySelectorAll('input[name^="group_"]');
+
+            let groupWeights = {};
+            let groupLevels = [];
+            let hasEmptyGroup = false;
+
+            weightInputs.forEach(input => {
+                const id = input.name.replace("weight_", "");
+                const weight = parseFloat(input.value) || 0;
+                const groupInput = document.querySelector(`input[name="group_${id}"]`);
+                let group = ifNotEnabled ? parseInt(groupInput?.value || "") : 1;
+
+                if (ifNotEnabled && (!groupInput?.value || isNaN(group))) {
+                    hasEmptyGroup = true;
+                    return;
+                }
+
+                if (!groupWeights[group]) {
+                    groupWeights[group] = 0;
+                    groupLevels.push(group);
+                }
+                groupWeights[group] += weight;
+            });
+
+            if (ifNotEnabled) {
+                if (hasEmptyGroup) {
+                    e.preventDefault();
+                    alert("All metrics must have a group number if IF NOT logic is enabled.");
+                    return;
+                }
+
+                groupLevels = [...new Set(groupLevels)].sort((a, b) => a - b);
+                for (let i = 0; i < groupLevels.length; i++) {
+                    if (groupLevels[i] !== i + 1) {
+                        e.preventDefault();
+                        alert("Group levels must be contiguous starting from 1 (e.g., 1, 2, 3).");
+                        return;
+                    }
+                }
+
+                for (const [group, sum] of Object.entries(groupWeights)) {
+                    if (Math.round(sum) !== 100) {
+                        e.preventDefault();
+                        alert(`Weights in Group ${group} must sum to 100. Currently: ${sum}`);
+                        return;
+                    }
+                }
+            } else {
+                // No grouping → total sum must be 100
+                const total = Object.values(groupWeights).reduce((a, b) => a + b, 0);
+                if (Math.round(total) !== 100) {
+                    e.preventDefault();
+                    alert("The sum of all weights must equal 100.");
+                    return;
+                }
+            }
+        });
+    });
+</script>
+
+{% endblock %}

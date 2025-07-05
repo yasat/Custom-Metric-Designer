@@ -79,15 +79,15 @@
                             <span class="feature-badge">{{ f }}</span>
                         {% endfor %}
                     </div>
-                    <a href="{% url 'design_existing_features' staging_id=staging_id %}?edit={{ design.id }}" class="btn btn-sm btn-outline-primary me-2">Edit</a>
-                    <a href="{% url 'design_existing_delete' staging_id=staging_id %}?delete={{ design.id }}" class="btn btn-sm btn-danger me-2">Delete</a>
+                    <a href="{% url 'design_metric_features' staging_id=staging_id %}?edit={{ design.id }}" class="btn btn-sm btn-outline-primary me-2">Edit</a>
+                    <a href="{% url 'design_metric_delete' staging_id=staging_id %}?delete={{ design.id }}" class="btn btn-sm btn-danger me-2">Delete</a>
                 </div>
             {% empty %}
                 <p class="text-muted">No metric designs have been created yet for this session.</p>
             {% endfor %}
 
             <div class="btn-group-custom">
-                <form action="{% url 'design_existing_save_new' staging_id=staging_id %}" method="post" class="d-inline">
+                <form action="{% url 'design_save_new' staging_id=staging_id %}" method="post" class="d-inline">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-outline-primary rounded-pill">
                         Add New Metric
