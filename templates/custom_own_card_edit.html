@@ -199,7 +199,6 @@ document.addEventListener("DOMContentLoaded", function () {
         labelInput.value = "";
         btn.classList.remove("active");
 
-        // Remove only label-injected block (first + logic before it)
         const blocks = container.querySelectorAll(".condition-block");
         if (blocks.length > 0) {
           const logic = blocks[0].previousElementSibling;

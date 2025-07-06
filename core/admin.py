@@ -5,7 +5,10 @@ from .models import (
     DesignCombineMetrics,
     DesignCustomOwnMetric,
     DesignCustomOwnCondition,
-    DesignCustomOwnGlobal
+    DesignCustomOwnGlobal,
+    DesignProceduralMetric,
+    DesignProceduralCondition,
+    DesignProceduralGlobal
 )
 
 @admin.register(Staging)
@@ -36,5 +39,22 @@ class DesignCustomOwnConditionAdmin(admin.ModelAdmin):
 
 @admin.register(DesignCustomOwnGlobal)
 class DesignCustomOwnGlobalAdmin(admin.ModelAdmin):
+    list_display = ('sid', 'metric_name', 'threshold')
+    search_fields = ['metric_name']
+
+@admin.register(DesignProceduralMetric)
+class DesignProceduralMetricAdmin(admin.ModelAdmin):
+    list_display = ('id', 'sid', 'label_type', 'boolean_operator', 'order', 'preview', 'delete_flag')
+    list_filter = ['label_type']
+    search_fields = ['label_type']
+
+@admin.register(DesignProceduralCondition)
+class DesignProceduralConditionAdmin(admin.ModelAdmin):
+    list_display = ('id', 'metric', 'feature', 'value', 'logic_with_next')
+    list_filter = ['feature', 'logic_with_next']
+    search_fields = ['feature', 'value', 'logic_with_next']
+
+@admin.register(DesignProceduralGlobal)
+class DesignProceduralGlobalAdmin(admin.ModelAdmin):
     list_display = ('sid', 'metric_name', 'threshold')
     search_fields = ['metric_name']

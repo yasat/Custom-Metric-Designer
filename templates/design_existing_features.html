@@ -108,7 +108,6 @@
     const selectedFromServer = {{ selected_features|safe }};
 
     for (const item of selectedFromServer) {
-        // Example item format: "Gender[Male]" or "Age[30 to 40]"
         const match = item.match(/^(.+?)\[(.+?)\]$/);
         if (match) {
             const name = match[1];

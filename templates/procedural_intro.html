@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Procedural Fairness Intro | CMD{% endblock %}
+{% block content %}
+<div class="text-center my-5 px-4" style="max-width: 800px; margin: auto;">
+    <h3 class="fw-bold mb-4">Design a Procedural Fairness Metric</h3>
+    <p class="lead">
+        You'll create logic cards based on whether features contribute to decision-making,
+        are used unfairly, or need pre-check conditions.
+    </p>
+    <p>Let’s start step-by-step. You’ll be able to review and edit as you go.</p>
+    <a href="{% url 'procedural_builder' staging_id=staging_id %}" class="btn btn-success rounded-pill px-5 py-3 fs-5 mt-4">Get Started</a>
+</div>
+{% endblock %}

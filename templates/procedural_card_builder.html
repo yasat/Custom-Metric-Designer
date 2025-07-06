@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+{% block title %}Build Procedural Logic | CMD{% endblock %}
+
+{% block content %}
+<style>
+    .layout-container {
+        display: flex;
+        gap: 2rem;
+        flex-wrap: wrap;
+    }
+
+    .label-list, .logic-config, .card-summary {
+        flex: 1;
+        min-width: 300px;
+    }
+
+    .label-item {
+        border: 1px solid #ccc;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-radius: 6px;
+        cursor: pointer;
+        background-color: #fff;
+    }
+
+    .label-item:hover {
+        background-color: #f1f1f1;
+    }
+
+    .card-preview {
+        border: 1px solid #007bff;
+        background: #f0f9ff;
+        padding: 1rem;
+        border-radius: 6px;
+        margin-bottom: 1rem;
+    }
+
+    .scroll-box {
+        max-height: 480px;
+        overflow-y: auto;
+        padding-right: 0.5rem;
+    }
+
+    .btn-add {
+        margin-top: 1rem;
+    }
+</style>
+
+<h4 class="fw-bold mb-3">Step 2: Build Procedural Cards</h4>
+<p class="text-muted mb-4">Select a label type and define its logic using features and conditions.</p>
+
+<div class="layout-container">
+    <div class="label-list">
+        <h5 class="fw-semibold mb-2">Label Types</h5>
+        <div class="scroll-box">
+            {% for key, label in labels.items %}
+            <div class="label-item" onclick="selectLabel('{{ key }}')">
+                <strong>{{ label }}</strong>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="logic-config">
+        <h5 class="fw-semibold mb-2">Card Builder</h5>
+        <div id="card-box" class="p-3 bg-light border rounded">
+            <p class="text-muted">Click a label to begin building a card.</p>
+        </div>
+    </div>
+
+    <div class="card-summary">
+        <h5 class="fw-semibold mb-2">Added Cards</h5>
+        <div id="cards-list" class="scroll-box">
+            <p class="text-muted" id="empty-msg">No cards added yet.</p>
+        </div>
+    </div>
+</div>
+
+<form method="POST" id="card-form">
+    {% csrf_token %}
+    <input type="hidden" name="cards_data" id="cards-data" />
+    <div class="text-end mt-4">
+        <button type="button" class="btn btn-success rounded-pill px-5 py-3 fs-5" onclick="submitCards()">Next</button>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const labels = {{ labels|safe }};
+    const features = {{ features|safe }};
+    const initialCards = {{ cards_json|safe }};
+    const csrfToken = '{{ csrf_token }}';
+    const cards = [...initialCards];
+
+    function selectLabel(labelKey) {
+        let html = `<input type="hidden" id="labelKey" value="${labelKey}">`;
+
+        if (labelKey === "contribute" || labelKey === "does_not_contribute") {
+            html += `<label>Select Feature</label>${getFeatureDropdown("feature")}`;
+        } else if (labelKey === "importance_by_group") {
+            html += `
+                <label>Group A</label>${getFeatureDropdown("groupA")}
+                <label class="mt-2">Operator</label>
+                <select class="form-select" id="operator">
+                    <option value="=">=</option>
+                    <option value="!=">≠</option>
+                    <option value=">">&gt;</option>
+                    <option value=">=">&ge;</option>
+                    <option value="<">&lt;</option>
+                    <option value="<=">&le;</option>
+                </select>
+                <label class="mt-2">Group B</label>${getFeatureDropdown("groupB")}
+            `;
+        } else if (labelKey === "feature_importance") {
+            html += `
+                <label>Select Feature</label>${getFeatureDropdown("feature")}
+                <label class="mt-2">Operator</label>
+                <select class="form-select" id="operator">
+                    <option value=">">&gt;</option>
+                    <option value=">=">&ge;</option>
+                    <option value="<">&lt;</option>
+                    <option value="<=">&le;</option>
+                    <option value="=">=</option>
+                    <option value="!=">≠</option>
+                </select>
+                <label class="mt-2">Threshold (%)</label>
+                <input type="number" class="form-control" id="value" min="0" max="100" placeholder="e.g. 60">
+            `;
+        } else if (labelKey === "pre_checks") {
+            html += `
+                <label>Select Feature</label>${getFeatureDropdown("feature")}
+                <label class="mt-2">Allow?</label>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="decision" value="Yes" id="yesCheck">
+                    <label class="form-check-label" for="yesCheck">Yes</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="decision" value="No" id="noCheck">
+                    <label class="form-check-label" for="noCheck">No</label>
+                </div>
+            `;
+        }
+
+        html += `<button class="btn btn-primary btn-add mt-3" onclick="addCard()">Add</button>`;
+        document.getElementById("card-box").innerHTML = html;
+    }
+
+    function getFeatureDropdown(id) {
+        let options = features.map(f => `<option value="${f.name}">${f.name}</option>`).join('');
+        return `<select class="form-select" id="${id}">${options}</select>`;
+    }
+
+    function addCard() {
+        const label = document.getElementById("labelKey").value;
+        let card = { label };
+        let preview = "";
+
+        if (label === "contribute" || label === "does_not_contribute") {
+            card.feature = document.getElementById("feature").value;
+            preview = `${card.feature} marked as ${label.replace('_', ' ')}`;
+        } else if (label === "importance_by_group") {
+            card.groupA = document.getElementById("groupA").value;
+            card.operator = document.getElementById("operator").value;
+            card.groupB = document.getElementById("groupB").value;
+            preview = `${card.groupA} ${card.operator} ${card.groupB}`;
+        } else if (label === "feature_importance") {
+            card.feature = document.getElementById("feature").value;
+            card.operator = document.getElementById("operator").value;
+            card.value = document.getElementById("value").value;
+            preview = `${card.feature} ${card.operator} ${card.value}%`;
+        } else if (label === "pre_checks") {
+            card.feature = document.getElementById("feature").value;
+            card.decision = document.querySelector('input[name="decision"]:checked')?.value;
+            if (!card.decision) {
+                alert("Please choose Yes or No.");
+                return;
+            }
+            preview = `Pre-check on ${card.feature}: ${card.decision}`;
+        }
+
+        card.preview = preview;
+
+        const duplicate = cards.some(existing =>
+            existing.label === card.label &&
+            (card.feature ? existing.feature === card.feature : true) &&
+            (card.value ? existing.value === card.value : true) &&
+            (card.operator ? existing.operator === card.operator : true) &&
+            (card.groupA ? existing.groupA === card.groupA : true) &&
+            (card.groupB ? existing.groupB === card.groupB : true) &&
+            (card.decision ? existing.decision === card.decision : true)
+        );
+
+        if (duplicate) {
+            alert("This card already exists.");
+            return;
+        }
+
+        fetch("{% url 'save_procedural_card' staging_id=staging_id %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken,
+            },
+            body: JSON.stringify(card)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.id) {
+                card.id = data.id;
+                cards.push(card);
+                updateCardList();
+                document.getElementById("card-box").innerHTML = `<p class="text-muted">Card added. Select another label to continue.</p>`;
+            } else {
+                alert("Failed to save card.");
+            }
+        })
+        .catch(() => alert("Error saving card."));
+    }
+
+
+
+    function removeCard(index) {
+        const card = cards[index];
+        if (card.id) {
+            const form = document.createElement("form");
+            form.method = "POST";
+            form.innerHTML = `
+                <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">
+                <input type="hidden" name="delete_card_id" value="${card.id}">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        } else {
+            cards.splice(index, 1);
+            updateCardList();
+        }
+    }
+
+    function updateCardList() {
+        const box = document.getElementById("cards-list");
+        box.innerHTML = "";
+        if (!cards.length) {
+            box.innerHTML = `<p class="text-muted" id="empty-msg">No cards added yet.</p>`;
+            return;
+        }
+
+        cards.forEach((c, i) => {
+            const div = document.createElement("div");
+            div.className = "card-preview d-flex justify-content-between align-items-center";
+            div.innerHTML = `
+                <div><strong>${labels[c.label]}</strong><br><small>${c.preview}</small></div>
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeCard(${i})">Delete</button>
+            `;
+            box.appendChild(div);
+        });
+    }
+
+    function submitCards() {
+        document.getElementById("cards-data").value = JSON.stringify(cards);
+        document.getElementById("card-form").submit();
+    }
+
+    window.onload = updateCardList;
+</script>
+{% endblock %}

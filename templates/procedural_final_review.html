@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load custom_filters %}
+{% block title %}Review Procedural Fairness Metric | CMD{% endblock %}
+
+{% block content %}
+<div class="px-4" style="max-width: 900px; margin: auto;">
+    <h4 class="fw-bold mb-4">Final Review</h4>
+
+    <div class="mb-4">
+        <h5>Metric Name:</h5>
+        <p class="lead">{{ metric_name }}</p>
+    </div>
+
+    <div class="mb-4">
+        <h5>Threshold:</h5>
+        <p class="lead">{{ threshold }}%</p>
+    </div>
+
+    <div class="mb-5">
+        <h5>Defined Cards:</h5>
+
+        {% if cards %}
+            {% for card in cards %}
+                <div class="border rounded p-3 mb-3 bg-light">
+                    <strong class="text-uppercase">{{ card.label_type|replace:"_, " }}</strong>
+                    <p class="text-muted mb-1">{{ card.preview }}</p>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p class="text-muted">No logic cards defined.</p>
+        {% endif %}
+    </div>
+
+    <div class="d-flex justify-content-center gap-3 mt-4">
+        <a href="{% url 'procedural_builder' staging_id=staging_id %}" class="btn btn-outline-primary rounded-pill px-5 py-3 fs-5">
+            Edit
+        </a>
+        <a href="{% url 'home' %}" class="btn btn-success rounded-pill px-5 py-3 fs-5">
+            Finish & Return to Home
+        </a>
+    </div>
+</div>
+{% endblock %}

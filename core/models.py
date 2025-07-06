@@ -71,3 +71,35 @@ class DesignCustomOwnGlobal(models.Model):
     sid = models.OneToOneField(Staging, on_delete=models.CASCADE, related_name='custom_own_global')
     metric_name = models.CharField(max_length=100)
     threshold = models.FloatField(null=True, blank=True)
+
+class DesignProceduralMetric(models.Model):
+    id = models.AutoField(primary_key=True)
+    sid = models.ForeignKey(Staging, on_delete=models.CASCADE, related_name='procedural_designs')
+    label_type = models.CharField(max_length=50)
+    boolean_operator = models.CharField(max_length=15, blank=True, null=True)
+    order = models.IntegerField(default=0)
+    delete_flag = models.BooleanField(default=False)
+
+    preview = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"ProceduralMetric #{self.id} for Staging {self.sid_id}"
+
+
+class DesignProceduralCondition(models.Model):
+    metric = models.ForeignKey(DesignProceduralMetric, on_delete=models.CASCADE, related_name='conditions')
+    feature = models.CharField(max_length=100)
+    value = models.CharField(max_length=100, blank=True, null=True)
+    logic_with_next = models.CharField(max_length=15, blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.feature}[{self.value}]"
+
+
+class DesignProceduralGlobal(models.Model):
+    sid = models.OneToOneField(Staging, on_delete=models.CASCADE, related_name='procedural_global')
+    metric_name = models.CharField(max_length=100)
+    threshold = models.FloatField(blank=True, null=True)
+
+    def __str__(self):
+        return f"ProceduralGlobal for Staging {self.sid_id}"

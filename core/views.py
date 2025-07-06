@@ -1,13 +1,40 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import Staging, DesignExistingMetrics, DesignCombineMetrics, DesignCustomOwnMetric, DesignCustomOwnGlobal, DesignCustomOwnCondition
-from django.http import HttpResponseBadRequest
-
+from .models import Staging, DesignExistingMetrics, DesignCombineMetrics, DesignCustomOwnMetric, DesignCustomOwnGlobal, DesignCustomOwnCondition, DesignProceduralMetric, DesignProceduralCondition, DesignProceduralGlobal
+from django.http import HttpResponseBadRequest, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from .features_data import FEATURES
 from .metrics_data import METRICS
 
-from .utils import get_design_model
-
+from .utils import get_design_model, get_operator_options, get_group_options
 from collections import defaultdict
+import json
+from django.core.serializers.json import DjangoJSONEncoder
+
+PROCEDURAL_LABELS = [
+    ("contribute", "Contribute"),
+    ("does_not_contribute", "Does not Contribute"),
+    ("importance_by_group", "Importance by Group"),
+    ("feature_importance", "Feature Importance"),
+    ("pre_checks", "Pre-checks"),
+]
+
+PROBABILITY_LABELS = [
+    ("predicted_true", "Predicted: True"),
+    ("predicted_false", "Predicted: False"),
+    ("ground_truth_true", "Ground Truth: True"),
+    ("ground_truth_false", "Ground Truth: False"),
+]
+
+def get_valid_condition_labels(probability_type):
+    if not probability_type:
+        return []
+
+    if probability_type.startswith("predicted"):
+        return [l for l in PROBABILITY_LABELS if l[0].startswith("ground_truth")]
+    elif probability_type.startswith("ground_truth"):
+        return [l for l in PROBABILITY_LABELS if l[0].startswith("predicted")]
+
+    return []
 
 def home(request):
 
@@ -150,7 +177,7 @@ def start_designing(request, staging_id):
         else:
             return HttpResponseBadRequest("Invalid metric type")
     elif staging.perspective == 'procedural':
-        return redirect('under_construction')
+        return redirect('procedural_intro', staging_id=staging.id)
     elif staging.perspective == 'affordability':
         return redirect('under_construction')
     else:
@@ -541,25 +568,6 @@ def custom_own_select_mode(request, staging_id):
         "staging_id": staging.id,
     })
 
-PROBABILITY_LABELS = [
-    ("predicted_true", "Predicted: True"),
-    ("predicted_false", "Predicted: False"),
-    ("ground_truth_true", "Ground Truth: True"),
-    ("ground_truth_false", "Ground Truth: False"),
-]
-
-def get_valid_condition_labels(probability_type):
-    if not probability_type:
-        return []
-
-    if probability_type.startswith("predicted"):
-        return [l for l in PROBABILITY_LABELS if l[0].startswith("ground_truth")]
-    elif probability_type.startswith("ground_truth"):
-        return [l for l in PROBABILITY_LABELS if l[0].startswith("predicted")]
-
-    return []
-
-
 def custom_own_card_edit(request, staging_id, card_id):
     staging = get_object_or_404(Staging, id=staging_id)
     metric = get_object_or_404(DesignCustomOwnMetric, id=card_id, sid=staging)
@@ -849,3 +857,232 @@ def custom_own_compare_final_review(request, staging_id):
         "rhs_cards": rhs_cards,
         "label_lookup": dict(PROBABILITY_LABELS),
     })
+
+
+
+def procedural_intro(request, staging_id):
+    staging = get_object_or_404(Staging, id=staging_id)
+    breadcrumb = [
+        {"label": staging.category or "Fairness Category", "url": "fairness_category_with_id"},
+        {"label": staging.perspective or "Perspective", "url": "fairness_perspective"},
+        {"label": "Procedural Fairness", "url": None},
+        {"label": "Intro", "url": None}
+    ]
+    return render(request, 'procedural_intro.html', {
+        "staging_id": staging.id,
+        "breadcrumb": breadcrumb
+    })
+
+def procedural_builder(request, staging_id):
+    staging = get_object_or_404(Staging, id=staging_id)
+    existing_metrics = DesignProceduralMetric.objects.filter(sid=staging, delete_flag=False).order_by('order')
+
+    if request.method == "POST" and "delete_card_id" in request.POST:
+        card_id = request.POST.get("delete_card_id")
+        DesignProceduralMetric.objects.filter(id=card_id, sid=staging).update(delete_flag=True)
+        return redirect('procedural_builder', staging_id=staging_id)
+
+    if request.method == "POST":
+        raw = request.POST.get("cards_data", "[]")
+        try:
+            card_list = json.loads(raw)
+        except json.JSONDecodeError:
+            card_list = []
+
+        keep_ids = []
+
+        for i, card in enumerate(card_list):
+            card_id = card.get("id")
+            label_type = card.get("label")
+            preview = card.get("preview", "")
+            feature = card.get("feature", "")
+            operator = card.get("operator", "")
+            value = card.get("value", "")
+            group_a = card.get("groupA", "")
+            group_b = card.get("groupB", "")
+            decision = card.get("decision", "")
+
+            if card_id:
+                try:
+                    metric = DesignProceduralMetric.objects.get(id=card_id, sid=staging)
+                    metric.label_type = label_type
+                    metric.order = i
+                    metric.preview = preview
+                    metric.delete_flag = False
+                    metric.save()
+                    metric.conditions.all().delete()
+                except DesignProceduralMetric.DoesNotExist:
+                    metric = DesignProceduralMetric.objects.create(
+                        sid=staging, label_type=label_type, order=i, preview=preview
+                    )
+            else:
+                metric = DesignProceduralMetric.objects.create(
+                    sid=staging, label_type=label_type, order=i, preview=preview
+                )
+
+            keep_ids.append(metric.id)
+
+            if label_type in ["contribute", "does_not_contribute"]:
+                DesignProceduralCondition.objects.create(
+                    metric=metric, feature=feature,
+                    value="Contributes" if label_type == "contribute" else "Does Not Contribute"
+                )
+            elif label_type == "feature_importance":
+                DesignProceduralCondition.objects.create(
+                    metric=metric, feature=feature, value=value, logic_with_next=operator
+                )
+            elif label_type == "importance_by_group":
+                DesignProceduralCondition.objects.create(
+                    metric=metric, feature=group_a, value=group_b, logic_with_next=operator
+                )
+            elif label_type == "pre_checks":
+                DesignProceduralCondition.objects.create(
+                    metric=metric, feature=feature, value=decision
+                )
+
+        DesignProceduralMetric.objects.filter(sid=staging).exclude(id__in=keep_ids).update(delete_flag=True)
+
+        return redirect('procedural_set_threshold', staging_id=staging_id)
+
+    cards_json = []
+    for m in existing_metrics:
+        conds = m.conditions.all()
+        d = {
+            "id": m.id,
+            "label": m.label_type,
+            "preview": m.preview
+        }
+        if m.label_type in ["contribute", "does_not_contribute"] and conds:
+            d["feature"] = conds[0].feature
+        elif m.label_type == "feature_importance" and conds:
+            d["feature"] = conds[0].feature
+            d["value"] = conds[0].value
+            d["operator"] = conds[0].logic_with_next
+        elif m.label_type == "importance_by_group" and conds:
+            d["groupA"] = conds[0].feature
+            d["groupB"] = conds[0].value
+            d["operator"] = conds[0].logic_with_next
+        elif m.label_type == "pre_checks" and conds:
+            d["feature"] = conds[0].feature
+            d["decision"] = conds[0].value
+
+        cards_json.append(d)
+
+    return render(request, 'procedural_card_builder.html', {
+        "staging_id": staging_id,
+        "cards": existing_metrics,
+        "features": FEATURES,
+        "labels": dict(PROCEDURAL_LABELS),
+        "cards_json": json.dumps(cards_json, cls=DjangoJSONEncoder)
+    })
+
+
+
+def procedural_set_threshold(request, staging_id):
+    staging = get_object_or_404(Staging, id=staging_id)
+    global_obj, _ = DesignProceduralGlobal.objects.get_or_create(sid=staging)
+
+    if request.method == "POST":
+        global_obj.metric_name = request.POST.get("metric_name")
+        threshold_raw = request.POST.get("threshold")
+        try:
+            global_obj.threshold = float(threshold_raw)
+        except (TypeError, ValueError):
+            return render(request, 'procedural_set_threshold.html', {
+                "staging_id": staging_id,
+                "metric_name": global_obj.metric_name,
+                "threshold": threshold_raw,
+                "error": "Please enter a valid numeric threshold."
+            })
+
+        global_obj.save()
+        return redirect('procedural_final_review', staging_id=staging_id)
+
+    return render(request, 'procedural_set_threshold.html', {
+        "staging_id": staging_id,
+        "metric_name": global_obj.metric_name,
+        "threshold": global_obj.threshold,
+    })
+
+
+def procedural_final_review(request, staging_id):
+    staging = get_object_or_404(Staging, id=staging_id)
+    global_obj = get_object_or_404(DesignProceduralGlobal, sid=staging)
+    designs = DesignProceduralMetric.objects.filter(sid=staging, delete_flag=False).order_by('order')
+
+    cards = []
+    for d in designs:
+        cards.append({
+            "label_type": d.label_type,
+            "preview": d.preview,
+            "id": d.id,
+            "conditions": list(d.conditions.all())
+        })
+
+    breadcrumb = [
+        {"label": "Procedural Fairness", "url": "procedural_intro"},
+        {"label": "Final Review", "url": None}
+    ]
+    return render(request, 'procedural_final_review.html', {
+        "staging_id": staging_id,
+        "metric_name": global_obj.metric_name,
+        "threshold": global_obj.threshold,
+        "cards": cards,
+        "breadcrumb": breadcrumb
+    })
+
+@csrf_exempt
+def save_procedural_card(request, staging_id):
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid method"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    staging = get_object_or_404(Staging, id=staging_id)
+    label = data.get("label")
+    preview = data.get("preview", "")
+    feature = data.get("feature", "")
+    value = data.get("value", "")
+    operator = data.get("operator", "")
+    groupA = data.get("groupA", "")
+    groupB = data.get("groupB", "")
+    decision = data.get("decision", "")
+
+    metric = DesignProceduralMetric.objects.create(
+        sid=staging,
+        label_type=label,
+        order=0,
+        preview=preview
+    )
+
+    if label in ["contribute", "does_not_contribute"]:
+        DesignProceduralCondition.objects.create(
+            metric=metric,
+            feature=feature,
+            value="Contributes" if label == "contribute" else "Does Not Contribute"
+        )
+    elif label == "feature_importance":
+        DesignProceduralCondition.objects.create(
+            metric=metric,
+            feature=feature,
+            value=value,
+            logic_with_next=operator
+        )
+    elif label == "importance_by_group":
+        DesignProceduralCondition.objects.create(
+            metric=metric,
+            feature=groupA,
+            value=groupB,
+            logic_with_next=operator
+        )
+    elif label == "pre_checks":
+        DesignProceduralCondition.objects.create(
+            metric=metric,
+            feature=feature,
+            value=decision
+        )
+
+    return JsonResponse({"id": metric.id})

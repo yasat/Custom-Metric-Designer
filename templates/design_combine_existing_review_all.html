@@ -174,7 +174,6 @@
                     }
                 }
             } else {
-                // No grouping → total sum must be 100
                 const total = Object.values(groupWeights).reduce((a, b) => a + b, 0);
                 if (Math.round(total) !== 100) {
                     e.preventDefault();

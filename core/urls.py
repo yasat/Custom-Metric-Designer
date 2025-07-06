@@ -41,6 +41,13 @@ urlpatterns = [
     path('design/custom-own/<int:staging_id>/compare/set-threshold/', views.custom_own_compare_set_threshold, name='custom_own_compare_set_threshold'),
     path('design/custom-own/<int:staging_id>/compare/final-review/', views.custom_own_compare_final_review, name='custom_own_compare_final_review'),
 
+    path('procedural/intro/<int:staging_id>/', views.procedural_intro, name='procedural_intro'),
+    path('procedural/builder/<int:staging_id>/', views.procedural_builder, name='procedural_builder'),
+    path('procedural/set-threshold/<int:staging_id>/', views.procedural_set_threshold, name='procedural_set_threshold'),
+    path('procedural/final-review/<int:staging_id>/', views.procedural_final_review, name='procedural_final_review'),
+    path('procedural/<int:staging_id>/add-card/', views.save_procedural_card, name='save_procedural_card'),
+
+
 
     path('under_construction', views.under_construction, name='under_construction'),
 ]
