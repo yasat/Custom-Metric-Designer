@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% load custom_filters %}
+
+{% block title %}Final Review | CMD{% endblock %}
+
+{% block content %}
+<style>
+    .scrollable-container {
+        display: flex;
+        flex-direction: row;
+        gap: 1rem;
+        height: 58vh;
+    }
+
+    .side-column {
+        flex: 1;
+        background-color: #ffffff;
+        border: 1px solid #ccc;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        overflow-y: auto;
+    }
+
+    .logic-operator {
+        text-align: center;
+        font-weight: bold;
+        color: #888;
+        margin: -0.5rem 0 1rem;
+    }
+
+    .compare-footer {
+        margin-top: 2rem;
+        text-align: center;
+    }
+
+    .badge.bg-dark {
+        font-weight: 600;
+        letter-spacing: 1px;
+        border-radius: 2rem;
+        box-shadow: 0 0 8px rgba(0,0,0,0.1);
+    }
+
+    .vs-column {
+        width: 80px;
+        position: relative;
+    }
+
+    .vs-inner {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+
+    @media (max-width: 768px) {
+        .scrollable-container {
+            flex-direction: column;
+            height: auto;
+        }
+
+        .vs-column {
+            display: none;
+        }
+    }
+</style>
+
+<div class="mb-4">
+    <p class="fw-bold">Metric: {{ metric_name }}</p>
+    <h4 class="fw-bold">Threshold: {{ threshold }}%</h4>
+</div>
+
+<div class="scrollable-container">
+
+    <div class="side-column">
+        <h5 class="fw-bold text-center">Left Side (LHS)</h5>
+
+        {% if lhs_cards %}
+            {% for card in lhs_cards %}
+                <div class="border p-3 mb-4 rounded bg-light">
+                    <div class="mb-2">
+                        <span class="badge bg-success text-light me-2">
+                            {{ label_lookup|dict_get:card.probability_type }}
+                        </span>
+                    </div>
+
+                    {% if card.conditions.exists %}
+                        <div class="mt-3 mb-0 d-flex flex-wrap align-items-center gap-2">
+                            {% for cond in card.conditions.all %}
+                                {% if not forloop.first %}
+                                    <span class="text-uppercase small fw-semibold text-secondary">{{ cond.logic_with_next }}</span>
+                                {% endif %}
+                                <span class="badge bg-primary text-wrap" style="font-size: 0.9em;">
+                                    {{ cond.binning }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted mt-3 mb-0">No conditions defined.</p>
+                    {% endif %}
+                </div>
+
+                {% if not forloop.last %}
+                    <div class="logic-operator">{{ card.boolean_operator }}</div>
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            <p class="text-muted text-center mt-2">No logic defined.</p>
+        {% endif %}
+    </div>
+
+    <div class="vs-column d-none d-md-block">
+        <div class="vs-inner">
+            <span class="badge bg-dark px-4 py-2 fs-5">VS</span>
+        </div>
+    </div>
+
+    <div class="side-column">
+        <h5 class="fw-bold text-center">Right Side (RHS)</h5>
+
+        {% if rhs_cards %}
+            {% for card in rhs_cards %}
+                <div class="border p-3 mb-4 rounded bg-light">
+                    <div class="mb-2">
+                        <span class="badge bg-success text-light me-2">
+                            {{ label_lookup|dict_get:card.probability_type }}
+                        </span>
+                    </div>
+
+                    {% if card.conditions.exists %}
+                        <div class="mt-3 mb-0 d-flex flex-wrap align-items-center gap-2">
+                            {% for cond in card.conditions.all %}
+                                {% if not forloop.first %}
+                                    <span class="text-uppercase small fw-semibold text-secondary">{{ cond.logic_with_next }}</span>
+                                {% endif %}
+                                <span class="badge bg-primary text-wrap" style="font-size: 0.9em;">
+                                    {{ cond.binning }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted mt-3 mb-0">No conditions defined.</p>
+                    {% endif %}
+                </div>
+
+                {% if not forloop.last %}
+                    <div class="logic-operator">{{ card.boolean_operator }}</div>
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            <p class="text-muted text-center mt-2">No logic defined.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="compare-footer mt-5">
+    <a href="{% url 'custom_own_compare' staging_id=staging_id %}" class="btn btn-outline-secondary rounded-pill px-5 py-3 me-3">
+        Edit
+    </a>
+    <a href="{% url 'home' %}" class="btn btn-outline-primary rounded-pill px-5 py-3">
+        Go Home
+    </a>
+</div>
+{% endblock %}

@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% load custom_filters %}
+
+{% block title %}Compare Logic | CMD{% endblock %}
+
+{% block content %}
+<style>
+    .scrollable-container {
+        display: flex;
+        flex-direction: row;
+        gap: 1rem;
+        height: 70vh;
+    }
+
+    .side-column {
+        flex: 1;
+        background-color: #ffffff;
+        border: 1px solid #ccc;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        overflow-y: auto;
+    }
+
+    .logic-operator {
+        text-align: center;
+        font-weight: bold;
+        color: #888;
+        margin: -0.5rem 0 1rem;
+    }
+
+    .compare-footer {
+        margin-top: 2rem;
+        text-align: center;
+    }
+
+    .badge.bg-dark {
+        font-weight: 600;
+        letter-spacing: 1px;
+        border-radius: 2rem;
+        box-shadow: 0 0 8px rgba(0,0,0,0.1);
+    }
+
+    .vs-column {
+        width: 80px;
+        position: relative;
+    }
+
+    .vs-inner {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+
+    @media (max-width: 768px) {
+        .scrollable-container {
+            flex-direction: column;
+            height: auto;
+        }
+
+        .vs-column {
+            display: none;
+        }
+    }
+</style>
+
+<div class="row align-items-start text-center">
+
+    <div class="scrollable-container">
+
+        <div class="side-column">
+            <h5 class="fw-bold">Left Side (LHS)</h5>
+
+            {% if lhs_cards %}
+                <div class="action-buttons mb-3">
+                    <a href="{% url 'custom_own_logic_review_side' staging_id=staging_id side='LHS' %}" class="btn btn-sm btn-outline-primary">Edit</a>
+                    <a href="{% url 'custom_own_card_delete' staging_id=staging_id card_id=lhs_cards.0.id %}" class="btn btn-outline-danger btn-sm" onclick="return confirm('Delete entire LHS logic?')">Delete</a>
+                </div>
+
+                {% for card in lhs_cards %}
+                    <div class="border p-3 mb-4 rounded bg-light">
+                        <div class="mb-2">
+                            <span class="badge bg-success text-light me-2">
+                                {{ label_lookup|dict_get:card.probability_type }}
+                            </span>
+                        </div>
+
+                        {% if card.conditions.exists %}
+                            <div class="mt-3 mb-0 d-flex flex-wrap align-items-center gap-2">
+                                {% for cond in card.conditions.all %}
+                                    {% if not forloop.first %}
+                                        <span class="text-uppercase small fw-semibold text-secondary">{{ cond.logic_with_next }}</span>
+                                    {% endif %}
+                                    <span class="badge bg-primary text-wrap" style="font-size: 0.9em;">
+                                        {{ cond.binning }}
+                                    </span>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <p class="text-muted mt-3 mb-0">No conditions defined.</p>
+                        {% endif %}
+                    </div>
+
+                    {% if not forloop.last %}
+                        <div class="logic-operator">{{ card.boolean_operator }}</div>
+                    {% endif %}
+                {% endfor %}
+            {% else %}
+                <a href="{% url 'custom_own_card_new_compare' staging_id=staging_id side='LHS' %}" class="btn btn-primary mt-2">Create LHS Logic</a>
+            {% endif %}
+        </div>
+
+        <div class="vs-column d-none d-md-block">
+            <div class="vs-inner">
+                <span class="badge bg-dark px-4 py-2 fs-5">VS</span>
+            </div>
+        </div>
+
+        <div class="side-column">
+            <h5 class="fw-bold">Right Side (RHS)</h5>
+
+            {% if rhs_cards %}
+                <div class="action-buttons mb-3">
+                    <a href="{% url 'custom_own_logic_review_side' staging_id=staging_id side='RHS' %}" class="btn btn-sm btn-outline-primary">Edit</a>
+                    <a href="{% url 'custom_own_card_delete' staging_id=staging_id card_id=rhs_cards.0.id %}" class="btn btn-outline-danger btn-sm" onclick="return confirm('Delete entire RHS logic?')">Delete</a>
+                </div>
+
+                {% for card in rhs_cards %}
+                    <div class="border p-3 mb-4 rounded bg-light">
+                        <div class="mb-2">
+                            <span class="badge bg-success text-light me-2">
+                                {{ label_lookup|dict_get:card.probability_type }}
+                            </span>
+                        </div>
+
+                        {% if card.conditions.exists %}
+                            <div class="mt-3 mb-0 d-flex flex-wrap align-items-center gap-2">
+                                {% for cond in card.conditions.all %}
+                                    {% if not forloop.first %}
+                                        <span class="text-uppercase small fw-semibold text-secondary">{{ cond.logic_with_next }}</span>
+                                    {% endif %}
+                                    <span class="badge bg-primary text-wrap" style="font-size: 0.9em;">
+                                        {{ cond.binning }}
+                                    </span>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <p class="text-muted mt-3 mb-0">No conditions defined.</p>
+                        {% endif %}
+                    </div>
+
+                    {% if not forloop.last %}
+                        <div class="logic-operator">{{ card.boolean_operator }}</div>
+                    {% endif %}
+                {% endfor %}
+            {% else %}
+                <a href="{% url 'custom_own_card_new_compare' staging_id=staging_id side='RHS' %}" class="btn btn-primary mt-2">Create RHS Logic</a>
+            {% endif %}
+        </div>
+    </div>
+
+
+</div>
+
+<div class="compare-footer">
+    <a href="{% url 'custom_own_compare_set_threshold' staging_id=staging_id %}" class="btn btn-success rounded-pill px-5 py-3 fs-5">
+        Add Threshold and Continue
+    </a>
+</div>
+{% endblock %}

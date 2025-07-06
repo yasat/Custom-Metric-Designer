@@ -50,14 +50,22 @@ class DesignCustomOwnMetric(models.Model):
     order = models.IntegerField(default=0)
     delete_flag = models.BooleanField(default=False)
 
+    side = models.CharField(
+        max_length=3,
+        choices=[("LHS", "Left"), ("RHS", "Right")],
+        blank=True,
+        null=True,
+        help_text="Used only in compare mode to distinguish logic sides."
+    )
+
     def __str__(self):
-        return f"CustomOwnMetric #{self.id}"
+        return f"CustomOwnMetric #{self.id} ({self.side})"
 
 class DesignCustomOwnCondition(models.Model):
     metric = models.ForeignKey(DesignCustomOwnMetric, on_delete=models.CASCADE, related_name='conditions')
     feature = models.CharField(max_length=100)
-    binning = models.CharField(max_length=255, blank=True, null=True)  # e.g. "age[18-25]" or "gender[female]"
-    logic_with_next = models.CharField(max_length=15, blank=True, null=True)  # AND, OR, custom text
+    binning = models.CharField(max_length=255, blank=True, null=True)
+    logic_with_next = models.CharField(max_length=15, blank=True, null=True)
 
 class DesignCustomOwnGlobal(models.Model):
     sid = models.OneToOneField(Staging, on_delete=models.CASCADE, related_name='custom_own_global')

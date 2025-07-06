@@ -30,8 +30,16 @@ urlpatterns = [
     path('design/custom-own/<int:staging_id>/card/<int:card_id>/', views.custom_own_card_edit, name='custom_own_card_edit'),
     path('design/custom-own/<int:staging_id>/card/new/', views.custom_own_card_new, name='custom_own_card_new'),
     path('design/custom-own/<int:staging_id>/logic-review/', views.custom_own_logic_review, name='custom_own_logic_review'),
+    path("design/custom/own/<int:staging_id>/logic-review/<str:side>/", views.custom_own_logic_review, name="custom_own_logic_review_side"),
     path('design/custom-own/<int:staging_id>/set-threshold/', views.custom_own_set_threshold, name='custom_own_set_threshold'),
     path('design/custom-own/<int:staging_id>/final-review/', views.custom_own_final_review, name='custom_own_final_review'),
+
+    path('design/custom-own/<int:staging_id>/compare/', views.custom_own_compare, name='custom_own_compare'),
+    path('design/custom-own/<int:staging_id>/compare/card/<str:side>/new/', views.custom_own_card_new_compare, name='custom_own_card_new_compare'),
+    path('design/custom-own/<int:staging_id>/compare/card/<int:card_id>/edit/', views.custom_own_card_edit_compare, name='custom_own_card_edit_compare'),
+    path('design/custom-own/<int:staging_id>/compare/card/<int:card_id>/delete/', views.custom_own_card_delete, name='custom_own_card_delete'),
+    path('design/custom-own/<int:staging_id>/compare/set-threshold/', views.custom_own_compare_set_threshold, name='custom_own_compare_set_threshold'),
+    path('design/custom-own/<int:staging_id>/compare/final-review/', views.custom_own_compare_final_review, name='custom_own_compare_final_review'),
 
 
     path('under_construction', views.under_construction, name='under_construction'),

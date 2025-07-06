@@ -18,7 +18,7 @@
             </span>
         </div>
         <div>
-          <a href="{% url 'custom_own_card_edit' staging_id=staging_id card_id=card.id %}" class="btn btn-sm btn-outline-primary">Edit</a>
+          <a href="{% url 'custom_own_card_edit_compare' staging_id=staging_id card_id=card.id %}" class="btn btn-sm btn-outline-primary">Edit</a>
           <a href="{% url 'design_metric_delete' staging_id=staging_id %}?delete={{ card.id }}" class="btn btn-sm btn-outline-danger">Delete</a>
         </div>
       </div>
@@ -57,14 +57,25 @@
     {% endif %}
   {% endfor %}
 
-  <div class="text-center mt-5">
-    <a href="{% url 'custom_own_card_new' staging_id=staging_id %}" class="btn btn-outline-secondary rounded-pill px-5 py-3 fs-5 me-3">
-      Add New Probability Card
-    </a>
-    <button type="submit" class="btn btn-success rounded-pill px-5 py-3 fs-5">
-      Set Threshold
-    </button>
-  </div>
+    <div class="text-center mt-5">
+
+        {% if is_compare_mode %}
+            <a href="{% url 'custom_own_card_new_compare' staging_id=staging_id side=cards.0.side %}" class="btn btn-outline-secondary rounded-pill px-5 py-3 fs-5 me-3">
+                Add New Probability Card
+            </a>
+            <button type="submit" class="btn btn-success rounded-pill px-5 py-3 fs-5">
+            Review
+            </button>
+        {% else %}
+            <a href="{% url 'custom_own_card_new' staging_id=staging_id %}" class="btn btn-outline-secondary rounded-pill px-5 py-3 fs-5 me-3">
+                Add New Probability Card
+            </a>
+            <button type="submit" class="btn btn-success rounded-pill px-5 py-3 fs-5">
+            Set Threshold
+            </button>
+        {% endif %}
+    </div>
+
 </form>
 
 <script>

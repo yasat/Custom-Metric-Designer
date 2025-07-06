@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Set Threshold | CMD{% endblock %}
+
+{% block content %}
+<form method="post" class="px-4">
+    {% csrf_token %}
+
+    <div class="mb-4">
+        <label for="metric_name" class="form-label fw-semibold">Metric Name</label>
+        <input type="text" name="metric_name" id="metric_name" class="form-control form-control-lg" required
+               value="{{ metric_name|default:'' }}">
+    </div>
+
+    <div class="mb-4">
+        <label for="threshold" class="form-label fw-semibold">Threshold (%)</label>
+        <input type="number" name="threshold" id="threshold" class="form-control form-control-lg" required step="0.1"
+               value="{{ threshold|default:'' }}">
+    </div>
+
+    {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+
+    <div class="text-center mt-5">
+        <button type="submit" class="btn btn-outline-primary rounded-pill px-5 py-3">
+            Review Final Metric
+        </button>
+    </div>
+</form>
+{% endblock %}

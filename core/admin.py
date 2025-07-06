@@ -24,7 +24,7 @@ class DesignCombineMetricsAdmin(admin.ModelAdmin):
 
 @admin.register(DesignCustomOwnMetric)
 class DesignCustomOwnMetricAdmin(admin.ModelAdmin):
-    list_display = ('id', 'sid', 'probability_type', 'boolean_operator', 'order', 'delete_flag')
+    list_display = ('id', 'sid', 'probability_type', 'boolean_operator', 'order', 'side', 'delete_flag')
     list_filter = ['probability_type']
     search_fields = ['probability_type']
 

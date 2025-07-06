@@ -535,7 +535,7 @@ def custom_own_select_mode(request, staging_id):
             return redirect('custom_own_card_edit', staging_id=staging.id, card_id=new_metric.id)
 
         elif mode == "compare":
-            return redirect('under_construction')
+            return redirect('custom_own_compare', staging_id=staging.id)
 
     return render(request, "custom_own_select_mode.html", {
         "staging_id": staging.id,
@@ -580,14 +580,14 @@ def custom_own_card_edit(request, staging_id, card_id):
 
             if feature in [l[0] for l in PROBABILITY_LABELS]:
                 if used_label_condition:
-                    continue  # skip additional label condition
+                    continue
                 used_label_condition = True
                 binning = feature
-            elif request.POST.get(f"binning_max_{i}"):  # numerical
+            elif request.POST.get(f"binning_max_{i}"):
                 min_val = request.POST.get(f"binning_{i}")
                 max_val = request.POST.get(f"binning_max_{i}")
                 binning = f"{feature}[{min_val}-{max_val}]"
-            else:  # categorical
+            else:
                 value = request.POST.get(f"binning_{i}")
                 binning = f"{feature}[{value}]"
 
@@ -598,14 +598,12 @@ def custom_own_card_edit(request, staging_id, card_id):
                 logic_with_next=custom_logic if logic == "CUSTOM" and custom_logic else logic
             )
 
-        # Set proper order if not set yet
         if metric.order == 0:
             existing = DesignCustomOwnMetric.objects.filter(sid=staging, delete_flag=False).exclude(id=metric.id)
             metric.order = existing.count()
             metric.save()
 
         if "save_add_new" in request.POST:
-            # Create a new blank metric and redirect to its edit page
             new_metric = DesignCustomOwnMetric.objects.create(sid=staging, order=metric.order + 1)
             return redirect('custom_own_card_edit', staging_id=staging.id, card_id=new_metric.id)
 
@@ -628,9 +626,20 @@ def custom_own_card_new(request, staging_id):
     new_metric = DesignCustomOwnMetric.objects.create(sid=staging)
     return redirect('custom_own_card_edit', staging_id=staging.id, card_id=new_metric.id)
 
-def custom_own_logic_review(request, staging_id):
+def custom_own_logic_review(request, staging_id, side=None):
     staging = get_object_or_404(Staging, id=staging_id)
-    cards = DesignCustomOwnMetric.objects.filter(sid=staging, delete_flag=False).order_by('order')
+    if side in ["LHS", "RHS"]:
+        cards = DesignCustomOwnMetric.objects.filter(
+            sid=staging, side=side, delete_flag=False
+        ).order_by('order')
+        is_compare_mode = True
+    else:
+        cards = DesignCustomOwnMetric.objects.filter(
+            sid=staging, side__isnull=True, delete_flag=False
+        ).order_by('order')
+        is_compare_mode = False
+
+    is_compare_mode = cards.filter(side__in=["LHS", "RHS"]).exists()
 
     if request.method == "POST":
         for key, value in request.POST.items():
@@ -645,13 +654,19 @@ def custom_own_logic_review(request, staging_id):
                     card.save()
                 except DesignCustomOwnMetric.DoesNotExist:
                     continue
-        return redirect('custom_own_set_threshold', staging_id=staging_id)
+
+        if is_compare_mode:
+            return redirect('custom_own_compare', staging_id=staging_id)
+        else:
+            return redirect('custom_own_set_threshold', staging_id=staging_id)
 
     return render(request, "custom_own_logic_review.html", {
         "staging_id": staging.id,
         "cards": cards,
         "label_lookup": dict(PROBABILITY_LABELS),
+        "is_compare_mode": is_compare_mode,
     })
+
 
 def custom_own_set_threshold(request, staging_id):
     staging = get_object_or_404(Staging, id=staging_id)
@@ -698,5 +713,139 @@ def custom_own_final_review(request, staging_id):
         "threshold": global_obj.threshold,
         "logic_string": logic_string,
         "cards": cards,
+        "label_lookup": dict(PROBABILITY_LABELS),
+    })
+
+def custom_own_compare(request, staging_id):
+    staging = get_object_or_404(Staging, id=staging_id)
+
+    lhs_cards = DesignCustomOwnMetric.objects.filter(sid=staging, side="LHS", delete_flag=False).order_by('order')
+    rhs_cards = DesignCustomOwnMetric.objects.filter(sid=staging, side="RHS", delete_flag=False).order_by('order')
+
+    label_lookup = dict(PROBABILITY_LABELS)
+
+    return render(request, "custom_own_compare.html", {
+        "staging_id": staging_id,
+        "lhs_cards": lhs_cards,
+        "rhs_cards": rhs_cards,
+        "label_lookup": label_lookup,
+    })
+
+
+def custom_own_card_new_compare(request, staging_id, side):
+    staging = get_object_or_404(Staging, id=staging_id)
+    order = DesignCustomOwnMetric.objects.filter(sid=staging, side=side, delete_flag=False).count()
+    metric = DesignCustomOwnMetric.objects.create(sid=staging, side=side, order=order)
+    return redirect('custom_own_card_edit_compare', staging_id=staging_id, card_id=metric.id)
+
+def custom_own_card_edit_compare(request, staging_id, card_id):
+    staging = get_object_or_404(Staging, id=staging_id)
+    metric = get_object_or_404(DesignCustomOwnMetric, id=card_id, sid=staging)
+
+    if request.method == "POST":
+        metric.probability_type = request.POST.get("probability_type")
+        metric.save()
+
+        DesignCustomOwnCondition.objects.filter(metric=metric).delete()
+
+        total = int(request.POST.get("total_conditions", 0))
+        used_label_condition = False
+
+        for i in range(total):
+            feature = request.POST.get(f"feature_{i}")
+            logic = request.POST.get(f"logic_{i}")
+            custom_logic = request.POST.get(f"custom_logic_{i}", "").strip()
+
+            if feature in [l[0] for l in PROBABILITY_LABELS]:
+                if used_label_condition:
+                    continue
+                used_label_condition = True
+                binning = feature
+            elif request.POST.get(f"binning_max_{i}"):
+                min_val = request.POST.get(f"binning_{i}")
+                max_val = request.POST.get(f"binning_max_{i}")
+                binning = f"{feature}[{min_val}-{max_val}]"
+            else:
+                value = request.POST.get(f"binning_{i}")
+                binning = f"{feature}[{value}]"
+
+            DesignCustomOwnCondition.objects.create(
+                metric=metric,
+                feature=feature,
+                binning=binning,
+                logic_with_next=custom_logic if logic == "CUSTOM" and custom_logic else logic
+            )
+
+        if metric.order == 0:
+            existing = DesignCustomOwnMetric.objects.filter(sid=staging, side=metric.side, delete_flag=False).exclude(id=metric.id)
+            metric.order = existing.count()
+            metric.save()
+
+        if "save_add_new" in request.POST:
+            new_order = metric.order + 1
+            new_card = DesignCustomOwnMetric.objects.create(sid=staging, side=metric.side, order=new_order)
+            return redirect('custom_own_card_edit_compare', staging_id=staging_id, card_id=new_card.id)
+
+        if "save_review_all" in request.POST:
+            return redirect('custom_own_logic_review_side', staging_id=staging_id, side=metric.side)
+
+    existing_conditions = DesignCustomOwnCondition.objects.filter(metric=metric).order_by('id')
+
+    return render(request, "custom_own_card_edit.html", {
+        "staging_id": staging.id,
+        "metric": metric,
+        "features": FEATURES,
+        "labels": get_valid_condition_labels(metric.probability_type),
+        "conditions": existing_conditions,
+        "probability_labels": PROBABILITY_LABELS,
+    })
+
+def custom_own_card_delete(request, staging_id, card_id):
+    staging = get_object_or_404(Staging, id=staging_id)
+    metric = get_object_or_404(DesignCustomOwnMetric, id=card_id, sid=staging)
+    metric.delete_flag = True
+    metric.save()
+    return redirect('custom_own_compare', staging_id=staging_id)
+
+def custom_own_compare_set_threshold(request, staging_id):
+    staging = get_object_or_404(Staging, id=staging_id)
+    global_obj, _ = DesignCustomOwnGlobal.objects.get_or_create(sid=staging)
+
+    if request.method == "POST":
+        global_obj.metric_name = request.POST.get("metric_name")
+
+        threshold_raw = request.POST.get("threshold")
+        try:
+            global_obj.threshold = float(threshold_raw)
+        except (TypeError, ValueError):
+            return render(request, "custom_own_compare_set_threshold.html", {
+                "staging_id": staging_id,
+                "metric_name": global_obj.metric_name,
+                "threshold": threshold_raw,
+                "error": "Please enter a valid numeric threshold."
+            })
+
+        global_obj.save()
+        return redirect('custom_own_compare_final_review', staging_id=staging_id)
+
+    return render(request, "custom_own_compare_set_threshold.html", {
+        "staging_id": staging_id,
+        "metric_name": global_obj.metric_name,
+        "threshold": global_obj.threshold,
+    })
+
+def custom_own_compare_final_review(request, staging_id):
+    staging = get_object_or_404(Staging, id=staging_id)
+    global_obj = get_object_or_404(DesignCustomOwnGlobal, sid=staging)
+
+    lhs_cards = DesignCustomOwnMetric.objects.filter(sid=staging, side="LHS", delete_flag=False).order_by('order')
+    rhs_cards = DesignCustomOwnMetric.objects.filter(sid=staging, side="RHS", delete_flag=False).order_by('order')
+
+    return render(request, "custom_own_compare_final_review.html", {
+        "staging_id": staging_id,
+        "metric_name": global_obj.metric_name,
+        "threshold": global_obj.threshold,
+        "lhs_cards": lhs_cards,
+        "rhs_cards": rhs_cards,
         "label_lookup": dict(PROBABILITY_LABELS),
     })
