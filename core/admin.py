@@ -1,15 +1,5 @@
 from django.contrib import admin
-from .models import (
-    Staging,
-    DesignExistingMetrics,
-    DesignCombineMetrics,
-    DesignCustomOwnMetric,
-    DesignCustomOwnCondition,
-    DesignCustomOwnGlobal,
-    DesignProceduralMetric,
-    DesignProceduralCondition,
-    DesignProceduralGlobal
-)
+from .models import *
 
 @admin.register(Staging)
 class StagingAdmin(admin.ModelAdmin):
@@ -58,3 +48,15 @@ class DesignProceduralConditionAdmin(admin.ModelAdmin):
 class DesignProceduralGlobalAdmin(admin.ModelAdmin):
     list_display = ('sid', 'metric_name', 'threshold')
     search_fields = ['metric_name']
+
+@admin.register(AffordabilityDesign)
+class AffordabilityDesignAdmin(admin.ModelAdmin):
+    list_display = ('id', 'staging_id', 'metric_name', 'threshold', 'created_at', 'delete_flag')
+    search_fields = ['metric_name', 'staging_id']
+
+
+@admin.register(AffordabilityCard)
+class AffordabilityCardAdmin(admin.ModelAdmin):
+    list_display = ('id', 'design', 'side', 'feature', 'operator', 'value', 'created_at', 'delete_flag')
+    list_filter = ['side', 'feature', 'operator']
+    search_fields = ['feature', 'value']

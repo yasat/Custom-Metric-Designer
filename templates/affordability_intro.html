@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Affordability Metric Intro | CMD{% endblock %}
+
+{% block content %}
+<div class="text-center my-5 px-4" style="max-width: 800px; margin: auto;">
+    <h3 class="fw-bold mb-4">Design an Affordability Fairness Metric</h3>
+    <p class="lead">
+        Compare features influencing creditworthiness (LHS) against personal/background factors (RHS).
+    </p>
+    <p>Let’s build it step-by-step. You can review and edit along the way.</p>
+    <a href="{% url 'affordability_builder' staging_id=staging_id %}" class="btn btn-success rounded-pill px-5 py-3 fs-5 mt-4">
+        Get Started
+    </a>
+</div>
+{% endblock %}

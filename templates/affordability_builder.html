@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+{% block title %}Affordability Builder | CMD{% endblock %}
+{% load static %}
+{% load custom_filters %}
+
+{% block content %}
+<style>
+    .scrollable-container {
+        display: flex;
+        flex-direction: row;
+        gap: 1rem;
+        height: 70vh;
+    }
+
+    .side-column {
+        flex: 1;
+        background-color: #ffffff;
+        border: 1px solid #ccc;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        overflow-y: auto;
+    }
+
+    .vs-column {
+        width: 80px;
+        position: relative;
+    }
+
+    .vs-inner {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+
+    .popup-form {
+        display: none;
+        position: fixed;
+        top: 20%;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: #fff;
+        border: 1px solid #ccc;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        z-index: 1000;
+        width: 400px;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    }
+
+    .overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.3);
+        z-index: 999;
+    }
+
+    .compare-footer {
+        margin-top: 2rem;
+        text-align: center;
+    }
+</style>
+
+<div class="scrollable-container">
+
+    <div class="side-column">
+        <h5 class="fw-bold">Credit Factors (LHS)</h5>
+
+        {% for card in lhs_cards %}
+            <div class="border p-3 mb-3 bg-light rounded d-flex justify-content-between align-items-center">
+                <div>{{ card.feature }} {{ card.operator }} {{ card.value }}</div>
+                <form method="post" action="{% url 'delete_affordability_card' staging_id=staging_id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="card_id" value="{{ card.id }}">
+                    <button class="btn btn-sm btn-outline-danger">Delete</button>
+                </form>
+            </div>
+        {% empty %}
+            <p class="text-muted">No cards yet.</p>
+        {% endfor %}
+
+        <button class="btn btn-outline-primary mt-2" onclick="openForm('LHS')">+ Add Card</button>
+    </div>
+
+    <div class="vs-column d-none d-md-block">
+        <div class="vs-inner">
+            <span class="badge bg-dark px-4 py-2 fs-5">VS</span>
+        </div>
+    </div>
+
+    <div class="side-column">
+        <h5 class="fw-bold">Personal Factors (RHS)</h5>
+
+        {% for card in rhs_cards %}
+            <div class="border p-3 mb-3 bg-light rounded d-flex justify-content-between align-items-center">
+                <div>{{ card.feature }} {{ card.operator }} {{ card.value }}</div>
+                <form method="post" action="{% url 'delete_affordability_card' staging_id=staging_id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="card_id" value="{{ card.id }}">
+                    <button class="btn btn-sm btn-outline-danger">Delete</button>
+                </form>
+            </div>
+        {% empty %}
+            <p class="text-muted">No cards yet.</p>
+        {% endfor %}
+
+        <button class="btn btn-outline-primary mt-2" onclick="openForm('RHS')">+ Add Card</button>
+    </div>
+</div>
+
+<div class="compare-footer">
+    <a href="#" id="proceedButton" class="btn btn-success rounded-pill px-5 py-3 fs-5">
+        Set Threshold & Continue
+    </a>
+</div>
+
+<div class="overlay" id="popupOverlay" onclick="closeForm()"></div>
+<div class="popup-form" id="popupForm">
+    <h5 class="mb-3">Add Condition</h5>
+    <form id="cardForm">
+        <input type="hidden" id="sideInput">
+        <div class="mb-3">
+            <label for="featureSelect" class="form-label">Feature</label>
+            <select class="form-select" id="featureSelect" required onchange="updateValueInput()">
+                <option value="" disabled selected>Select feature</option>
+                {% for feat in features %}
+                    <option value="{{ feat.name }}" data-type="{{ feat.type }}" data-cats="{{ feat.categories|default:''|join:',' }}">
+                        {{ feat.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="operatorSelect" class="form-label">Operator</label>
+            <select class="form-select" id="operatorSelect" required>
+                <option value="=">=</option>
+                <option value="!=">≠</option>
+                <option value="<"><</option>
+                <option value="<=">≤</option>
+                <option value=">">></option>
+                <option value=">=">≥</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="valueInput" class="form-label">Value</label>
+            <input class="form-control" id="valueInput" required>
+        </div>
+        <div class="d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-outline-secondary" onclick="closeForm()">Cancel</button>
+            <button type="submit" class="btn btn-primary">Add</button>
+        </div>
+    </form>
+</div>
+
+<script>
+    function openForm(side) {
+        document.getElementById("sideInput").value = side;
+        document.getElementById("popupForm").style.display = "block";
+        document.getElementById("popupOverlay").style.display = "block";
+    }
+
+    function closeForm() {
+        document.getElementById("cardForm").reset();
+        document.getElementById("popupForm").style.display = "none";
+        document.getElementById("popupOverlay").style.display = "none";
+    }
+
+    function updateValueInput() {
+        const featureSelect = document.getElementById("featureSelect");
+        const selected = featureSelect.selectedOptions[0];
+        const type = selected.getAttribute("data-type");
+        const cats = selected.getAttribute("data-cats") || "";
+        const valueWrapper = document.getElementById("valueInput");
+        const operatorSelect = document.getElementById("operatorSelect");
+
+        operatorSelect.innerHTML = "";
+
+        const operatorOptions = (type === "categorical")
+            ? [["=", "="], ["!=", "≠"]]
+            : [["=", "="], ["!=", "≠"], ["<", "<"], ["<=", "≤"], [">", ">"], [">=", "≥"]];
+
+        for (const [val, label] of operatorOptions) {
+            const opt = document.createElement("option");
+            opt.value = val;
+            opt.textContent = label;
+            operatorSelect.appendChild(opt);
+        }
+
+        const newInput = (type === "categorical")
+            ? createDropdown(cats.split(","))
+            : createNumberInput();
+
+        newInput.id = "valueInput";
+        newInput.className = "form-control";
+        newInput.required = true;
+
+        valueWrapper.replaceWith(newInput);
+    }
+
+    function createDropdown(options) {
+        const select = document.createElement("select");
+        select.className = "form-select";
+        for (const value of options) {
+            const opt = document.createElement("option");
+            opt.value = value;
+            opt.textContent = value;
+            select.appendChild(opt);
+        }
+        return select;
+    }
+
+    function createNumberInput() {
+        const input = document.createElement("input");
+        input.type = "number";
+        return input;
+    }
+
+    document.getElementById("cardForm").addEventListener("submit", async function (e) {
+        e.preventDefault();
+
+        const side = document.getElementById("sideInput").value;
+        const feature = document.getElementById("featureSelect").value;
+        const operator = document.getElementById("operatorSelect").value;
+        const value = document.getElementById("valueInput").value;
+
+        const oppositeCards = document.querySelectorAll(`.side-column:nth-child(${side === 'LHS' ? 3 : 1}) .border`);
+        for (const div of oppositeCards) {
+            if (div.textContent.includes(feature)) {
+                alert(`"${feature}" is already used on the opposite side (${side === 'LHS' ? 'RHS' : 'LHS'}).`);
+                return;
+            }
+        }
+
+        const sameSideCards = document.querySelectorAll(`.side-column:nth-child(${side === 'LHS' ? 1 : 3}) .border`);
+        for (const div of sameSideCards) {
+            const cardText = div.textContent.trim().replace(/\s+/g, ' ');
+            const inputCard = `${feature} ${operator} ${value}`;
+            if (cardText === inputCard) {
+                alert("This exact card already exists on this side.");
+                return;
+            }
+        }
+
+        const res = await fetch("{% url 'save_affordability_card' staging_id=staging_id %}", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": "{{ csrf_token }}" },
+            body: JSON.stringify({ side, feature, operator, value })
+        });
+
+        if (res.ok) location.reload();
+        else alert("Failed to save card.");
+    });
+
+    document.getElementById("proceedButton").addEventListener("click", function (e) {
+        const lhsCount = {{ lhs_cards|length }};
+        const rhsCount = {{ rhs_cards|length }};
+
+        if (lhsCount < 1 || rhsCount < 1) {
+            e.preventDefault();
+            alert("Please add at least one card on both LHS and RHS before continuing.");
+        } else {
+            window.location.href = "{% url 'affordability_set_threshold' staging_id=staging_id %}";
+        }
+    });
+</script>
+{% endblock %}

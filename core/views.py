@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import Staging, DesignExistingMetrics, DesignCombineMetrics, DesignCustomOwnMetric, DesignCustomOwnGlobal, DesignCustomOwnCondition, DesignProceduralMetric, DesignProceduralCondition, DesignProceduralGlobal
+from .models import *
 from django.http import HttpResponseBadRequest, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from .features_data import FEATURES
@@ -179,7 +179,7 @@ def start_designing(request, staging_id):
     elif staging.perspective == 'procedural':
         return redirect('procedural_intro', staging_id=staging.id)
     elif staging.perspective == 'affordability':
-        return redirect('under_construction')
+        return redirect('affordability_intro', staging_id=staging.id)
     else:
         return HttpResponseBadRequest("Invalid fairness perspective type")
 
@@ -1086,3 +1086,89 @@ def save_procedural_card(request, staging_id):
         )
 
     return JsonResponse({"id": metric.id})
+
+
+
+
+def affordability_intro(request, staging_id):
+    return render(request, "affordability_intro.html", {
+        "staging_id": staging_id
+    })
+
+
+def affordability_builder(request, staging_id):
+    staging = get_object_or_404(Staging, id=staging_id)
+
+    design, _ = AffordabilityDesign.objects.get_or_create(
+        staging_id=staging,
+        defaults={"metric_name": "", "threshold": 0}
+    )
+
+    lhs_cards = AffordabilityCard.objects.filter(design=design, side="LHS", delete_flag=False)
+    rhs_cards = AffordabilityCard.objects.filter(design=design, side="RHS", delete_flag=False)
+
+    return render(request, "affordability_builder.html", {
+        "staging_id": staging_id,
+        "lhs_cards": lhs_cards,
+        "rhs_cards": rhs_cards,
+        "features": FEATURES,
+    })
+
+
+def save_affordability_card(request, staging_id):
+    if request.method == "POST":
+        staging = get_object_or_404(Staging, id=staging_id)
+        design = get_object_or_404(AffordabilityDesign, staging_id=staging)
+
+        data = json.loads(request.body)
+
+        card = AffordabilityCard.objects.create(
+            design=design,
+            side=data["side"],
+            feature=data["feature"],
+            operator=data["operator"],
+            value=data["value"]
+        )
+
+        return JsonResponse({"id": card.id})
+    return JsonResponse({"error": "Invalid request"}, status=400)
+
+
+def delete_affordability_card(request, staging_id):
+    if request.method == "POST":
+        card_id = request.POST.get("card_id")
+        card = get_object_or_404(AffordabilityCard, id=card_id)
+        card.delete_flag = True
+        card.save()
+        return redirect("affordability_builder", staging_id=staging_id)
+    return JsonResponse({"error": "Invalid request"}, status=400)
+
+
+def affordability_set_threshold(request, staging_id):
+    staging = get_object_or_404(Staging, id=staging_id)
+    design = get_object_or_404(AffordabilityDesign, staging_id=staging)
+
+    if request.method == "POST":
+        design.metric_name = request.POST.get("metric_name", "")
+        design.threshold = request.POST.get("threshold", 0)
+        design.save()
+        return redirect("affordability_final_review", staging_id=staging_id)
+
+    return render(request, "affordability_set_threshold.html", {
+        "staging_id": staging_id,
+        "metric_name": design.metric_name,
+        "threshold": design.threshold,
+    })
+
+
+def affordability_final_review(request, staging_id):
+    staging = get_object_or_404(Staging, id=staging_id)
+    design = get_object_or_404(AffordabilityDesign, staging_id=staging)
+    cards = design.cards.filter(delete_flag=False)
+
+    return render(request, "affordability_final_review.html", {
+        "staging_id": staging_id,
+        "metric_name": design.metric_name,
+        "threshold": design.threshold,
+        "cards": cards,
+    })

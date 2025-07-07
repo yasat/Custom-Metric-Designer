@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="my-4">Superadmin Dashboard</h2>
+
+<table class="table table-bordered">
+  <thead>
+    <tr>
+      <th>Participant ID</th>
+      <th>Existing</th>
+      <th>Combine Existing</th>
+      <th>Own (Combine)</th>
+      <th>Own (Compare)</th>
+      <th>Procedural</th>
+      <th>Affordability</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in participants %}
+    <tr>
+      <td>{{ row.pid }}</td>
+      <td>{{ row.existing }}</td>
+      <td>{{ row.combine_existing }}</td>
+      <td>{{ row.own_combine }}</td>
+      <td>{{ row.own_compare }}</td>
+      <td>{{ row.procedural }}</td>
+      <td>{{ row.affordability }}</td>
+      <td><a href="{% url 'superadmin_view_metrics' row.pid %}" class="btn btn-sm btn-primary">View Metrics</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

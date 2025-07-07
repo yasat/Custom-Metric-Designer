@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% load custom_filters1 %}
+{% block content %}
+
+<h2 class="mb-4">Metrics Summary for Participant: {{ pid }}</h2>
+
+<!-- Existing Metrics -->
+{% if existing %}
+<div class="card mb-4">
+    <div class="card-header"><strong>Outcome → Existing Metrics</strong></div>
+    <div class="card-body">
+        {% for item in existing %}
+        <div class="mb-3 border p-2 rounded">
+            <span class="badge bg-primary">Metric:</span> {{ item.metric }}
+            <span class="badge bg-secondary">Threshold:</span> {{ item.threshold }}%
+            <div class="mt-2">
+                <strong>Features:</strong>
+                {% for f in item.features|default:''|split:"," %}
+                    <span class="badge bg-info text-dark">{{ f|trim }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if combine_existing %}
+    <h5 class="fw-semibold mt-4 mb-3">Outcome → Combine Existing Metrics</h5>
+    
+    {% for sid, levels in combine_existing.items %}
+        <p class="text-muted small fw-semibold">Staging ID: {{ sid }}</p>
+
+        {% for level, cards in levels.items %}
+            <p class="text-muted fw-semibold">Level {{ level }}</p>
+            <div class="bg-light border rounded p-3 mb-4">
+                {% for card in cards %}
+                    <span>{{ card.text }}</span>
+                    {% if not forloop.last and card.operator %}
+                        <span class="text-muted mx-2">{{ card.operator }}</span>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            {% if not forloop.last %}
+                <p class="text-center fw-semibold text-muted mb-4">IF NOT, THEN</p>
+            {% endif %}
+        {% endfor %}
+    {% endfor %}
+{% endif %}
+
+
+<!-- Custom Own Combine -->
+{% if own_combine %}
+<div class="card mb-4">
+    <div class="card-header"><strong>Outcome → Custom Own (Combine)</strong></div>
+    <div class="card-body">
+        {% for card in own_combine %}
+        <div class="mb-3 border p-2 rounded">
+            <span class="badge bg-success">{{ card.probability_type }}</span>
+            {% for c in card.conditions.all %}
+                <div class="mt-2">
+                    <span class="badge bg-secondary">{{ c.feature }}</span>
+                    <span class="badge bg-light text-dark">{{ c.binning }}</span>
+                    {% if c.logic_with_next %}
+                        <span class="badge bg-dark">{{ c.logic_with_next }}</span>
+                    {% endif %}
+                </div>
+            {% endfor %}
+            {% if card.boolean_operator %}
+                <div><em>Then: {{ card.boolean_operator }}</em></div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Custom Own Compare -->
+{% if own_compare_lhs or own_compare_rhs %}
+<div class="card mb-4">
+    <div class="card-header"><strong>Outcome → Custom Own (Compare)</strong></div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <h6>LHS</h6>
+                {% for card in own_compare_lhs %}
+                <div class="mb-3 border p-2 rounded">
+                    <span class="badge bg-success">{{ card.probability_type }}</span>
+                    {% for c in card.conditions.all %}
+                        <div class="mt-2">
+                            <span class="badge bg-secondary">{{ c.feature }}</span>
+                            <span class="badge bg-light text-dark">{{ c.binning }}</span>
+                            {% if c.logic_with_next %}
+                                <span class="badge bg-dark">{{ c.logic_with_next }}</span>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+            <div class="col-md-6">
+                <h6>RHS</h6>
+                {% for card in own_compare_rhs %}
+                <div class="mb-3 border p-2 rounded">
+                    <span class="badge bg-success">{{ card.probability_type }}</span>
+                    {% for c in card.conditions.all %}
+                        <div class="mt-2">
+                            <span class="badge bg-secondary">{{ c.feature }}</span>
+                            <span class="badge bg-light text-dark">{{ c.binning }}</span>
+                            {% if c.logic_with_next %}
+                                <span class="badge bg-dark">{{ c.logic_with_next }}</span>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Procedural Metrics -->
+{% if procedural %}
+<div class="card mb-4">
+    <div class="card-header"><strong>Procedural Metrics</strong></div>
+    <div class="card-body">
+        {% for item in procedural %}
+        <div class="mb-3 border p-2 rounded">
+            <strong>{{ item.label_type }}</strong>: {{ item.preview }}
+            <ul class="mt-2">
+                {% for c in item.conditions.all %}
+                    <li>{{ c.feature }} → {{ c.value }} {% if c.logic_with_next %}({{ c.logic_with_next }}){% endif %}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Affordability -->
+{% if affordability %}
+<div class="card mb-4">
+    <div class="card-header"><strong>Affordability</strong></div>
+    <div class="card-body">
+        {% for c in affordability %}
+            <div class="mb-2">
+                <span class="badge bg-dark">{{ c.side }}</span>
+                {{ c.feature }} {{ c.operator }} {{ c.value }}
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<a href="{% url 'superadmin_dashboard' %}" class="btn btn-outline-secondary">← Back</a>
+
+{% endblock %}

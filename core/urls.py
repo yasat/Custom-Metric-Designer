@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from . import views
 
 urlpatterns = [
@@ -47,7 +47,14 @@ urlpatterns = [
     path('procedural/final-review/<int:staging_id>/', views.procedural_final_review, name='procedural_final_review'),
     path('procedural/<int:staging_id>/add-card/', views.save_procedural_card, name='save_procedural_card'),
 
-
+    path('affordability/intro/<int:staging_id>/', views.affordability_intro, name='affordability_intro'),
+    path('affordability/builder/<int:staging_id>/', views.affordability_builder, name='affordability_builder'),
+    path('affordability/set-threshold/<int:staging_id>/', views.affordability_set_threshold, name='affordability_set_threshold'),
+    path('affordability/final-review/<int:staging_id>/', views.affordability_final_review, name='affordability_final_review'),
+    path('affordability/<int:staging_id>/add-card/', views.save_affordability_card, name='save_affordability_card'),
+    path('affordability/<int:staging_id>/delete-card/', views.delete_affordability_card, name='delete_affordability_card'),
 
     path('under_construction', views.under_construction, name='under_construction'),
+
+    path('superadmin/', include('superadminpanel.urls')),
 ]

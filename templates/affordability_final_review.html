@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load custom_filters %}
+{% block title %}Review Affordability Metric | CMD{% endblock %}
+
+{% block content %}
+<div class="px-4" style="max-width: 1000px; margin: auto;">
+    <h4 class="fw-bold mb-4">Final Review</h4>
+
+    <div class="mb-4">
+        <h5>Metric Name:</h5>
+        <p class="lead">{{ metric_name }}</p>
+    </div>
+
+    <div class="mb-4">
+        <h5>Threshold:</h5>
+        <p class="lead">{{ threshold }}%</p>
+    </div>
+
+    <div class="mb-5">
+        <h5>Defined Conditions:</h5>
+
+        <div class="row">
+            <!-- LHS -->
+            <div class="col-md-6">
+                <div class="border rounded p-3 bg-light mb-2">
+                    <h6 class="fw-semibold text-primary">Credit Factors (LHS)</h6>
+                    {% for card in cards %}
+                        {% if card.side == "LHS" %}
+                            <div class="border p-2 mb-2 bg-white rounded">
+                                <strong>{{ card.feature }}</strong> {{ card.operator }} {{ card.value }}
+                            </div>
+                        {% endif %}
+                    {% empty %}
+                        <p class="text-muted">No credit conditions defined.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- RHS -->
+            <div class="col-md-6">
+                <div class="border rounded p-3 bg-light mb-2">
+                    <h6 class="fw-semibold text-success">Personal Factors (RHS)</h6>
+                    {% for card in cards %}
+                        {% if card.side == "RHS" %}
+                            <div class="border p-2 mb-2 bg-white rounded">
+                                <strong>{{ card.feature }}</strong> {{ card.operator }} {{ card.value }}
+                            </div>
+                        {% endif %}
+                    {% empty %}
+                        <p class="text-muted">No personal conditions defined.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-center gap-3 mt-4">
+        <a href="{% url 'affordability_builder' staging_id=staging_id %}" class="btn btn-outline-primary rounded-pill px-5 py-3 fs-5">
+            Edit
+        </a>
+        <a href="{% url 'home' %}" class="btn btn-success rounded-pill px-5 py-3 fs-5">
+            Finish & Return to Home
+        </a>
+    </div>
+</div>
+{% endblock %}
