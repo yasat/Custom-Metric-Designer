@@ -50,7 +50,12 @@
 
     .feature-card span {
         font-size: 0.9rem;
-        color: #555;
+        color: #388e3c;
+    }
+
+    .feature-card2 span {
+        font-size: 0.9rem;
+        color: #f44336;
     }
 
     .btn-start {
@@ -66,18 +71,42 @@
                 <h4 class="fw-bold mb-3">Summary of Your Configuration</h4>
 
                 <div class="summary-item">
-                    <h5>Selected Features</h5>
+                    <h5>Feature you selected to be protected</h5>
                     {% if features %}
                         <div class="row">
                             {% for f in features %}
+                            {% if f.status == 'protected' %}
                                 <div class="col-md-4 mb-3">
-                                    <div class="border rounded p-3 h-100 bg-light">
+                                    <div class="border rounded p-3 h-100 bg-light" style="background-color: {% if f.status == 'protected' %} #c8e6c9 {% else %} #ef9a9a {% endif %} !important;">
                                         <strong>{{ f.name }}</strong><br>
                                         {% if f.binning %}
                                             <small class="text-muted">[{{ f.binning }}]</small>
                                         {% endif %}
                                     </div>
                                 </div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No features selected.</p>
+                    {% endif %}
+                </div>
+
+                <div class="summary-item">
+                    <h5>Feature you selected to be not protected</h5>
+                    {% if features %}
+                        <div class="row">
+                            {% for f in features %}
+                            {% if f.status == 'non-protected' %}
+                                <div class="col-md-4 mb-3">
+                                    <div class="border rounded p-3 h-100 bg-light" style="background-color: {% if f.status == 'protected' %} #c8e6c9 {% else %} #ef9a9a {% endif %} !important;">
+                                        <strong>{{ f.name }}</strong><br>
+                                        {% if f.binning %}
+                                            <small class="text-muted">[{{ f.binning }}]</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endif %}    
                             {% endfor %}
                         </div>
                     {% else %}

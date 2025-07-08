@@ -359,9 +359,10 @@ def design_metric_summary(request, staging_id):
             if '[' in item and ']' in item:
                 name = item.split('[')[0].strip()
                 binning = item.split('[')[1].replace(']', '').strip()
-                feature_items.append({'name': name, 'binning': binning})
+                status = item.split('[')[2].replace(']', '').strip()
+                feature_items.append({'name': name, 'binning': binning, 'status': status})
             elif item:
-                feature_items.append({'name': item, 'binning': ''})
+                feature_items.append({'name': item, 'binning': '', 'status': ''})
 
     breadcrumb = [
         {"label": staging.category, "url": "fairness_category_with_id"},
@@ -411,13 +412,15 @@ def design_existing_review_all(request, staging_id):
     designs = []
     for design in designs_raw:
         if design.features:
-            feature_list = [f.strip() for f in design.features.split(",") if f.strip()]
+            feature_list1 = [[f.strip().split("[")[0]+"["+f.strip().split("[")[1]] for f in design.features.split(",") if f.strip().split("[")[-1].replace("]","") == "protected"]
+            feature_list2 = [[f.strip().split("[")[0]+"["+f.strip().split("[")[1]] for f in design.features.split(",") if f.strip().split("[")[-1].replace("]","") == "non-protected"]
         else:
             feature_list = []
         designs.append({
             "metric": design.metric,
             "threshold": design.threshold,
-            "features": feature_list,
+            "features_protected": feature_list1,
+            "features_non_protected": feature_list2,
             "id": design.id
         })
 
@@ -496,12 +499,16 @@ def design_combine_existing_review_all(request, staging_id):
 
     for design in designs_raw:
         feature_list = [f.strip() for f in design.features.split(",") if f.strip()]
+        feature_list1 = [[f.strip().split("[")[0]+"["+f.strip().split("[")[1]] for f in design.features.split(",") if f.strip().split("[")[-1].replace("]","") == "protected"]
+        feature_list2 = [[f.strip().split("[")[0]+"["+f.strip().split("[")[1]] for f in design.features.split(",") if f.strip().split("[")[-1].replace("]","") == "non-protected"]
         if design.group_level is not None:
             has_grouping = True
 
         designs.append({
             "id": design.id,
             "features": feature_list,
+            "features_protected": feature_list1,
+            "features_non_protected": feature_list2,
             "metric": design.metric,
             "threshold": design.threshold,
             "weight": design.weight,
@@ -526,8 +533,12 @@ def design_combine_existing_final_summary(request, staging_id):
     for design in designs:
         group = design.group_level if design.group_level else 1
         group_levels_present.append(group)
+    
+        feature_list1 = "(" + " AND ".join([f.strip() for f in design.features.split(",") if f.strip().split("[")[-1].replace("]","") == "protected"])
+        feature_list2 = "(" + " AND ".join([f.strip() for f in design.features.split(",") if f.strip().split("[")[-1].replace("]","") == "non-protected"])
 
-        features_str = ", ".join([f.strip() for f in design.features.split(",") if f.strip()])
+        features_str = feature_list1 + ") vs (" + feature_list2 + ")"
+    
         expression = f"({design.weight:.1f}% × ({features_str}, {design.metric}, {design.threshold}%))"
 
         grouped_metrics[group].append({

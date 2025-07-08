@@ -37,9 +37,20 @@
 
     .feature-badge {
         display: inline-block;
-        background-color: #e7f3ff;
+        background-color: #c8e6c9;
         border: 1px solid #bcdfff;
         color: #004085;
+        padding: 0.4rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        margin: 0.2rem 0.4rem 0.4rem 0;
+    }
+
+    .feature-badge-nonp {
+        display: inline-block;
+        background-color: #ef9a9a;
+        border: 1px solid #bcdfff;
+        color: black;
         padding: 0.4rem 0.75rem;
         border-radius: 20px;
         font-size: 0.9rem;
@@ -73,10 +84,17 @@
                 <div class="review-card">
                     <h5>Metric: <span class="metric-label">{{ design.metric }}</span></h5>
                     <p class="mb-1"><strong>Threshold:</strong> {{ design.threshold }}%</p>
-                    <p class="mb-2"><strong>Features:</strong></p>
+                    <p class="mb-2"><strong>Features (protected):</strong></p>
                     <div>
-                        {% for f in design.features %}
-                            <span class="feature-badge">{{ f }}</span>
+                        {% for f in design.features_protected %}
+                            <span class="feature-badge">{{ f.0 }}</span> {% if not forloop.last %} AND {% endif %}
+                        {% endfor %}
+                    </div>
+
+                    <p class="mb-2"><strong>Features (not protected):</strong></p>
+                    <div>
+                        {% for f in design.features_non_protected %}
+                            <span class="feature-badge-nonp">{{ f.0 }}</span> {% if not forloop.last %} AND {% endif %}
                         {% endfor %}
                     </div>
                     <a href="{% url 'design_metric_features' staging_id=staging_id %}?edit={{ design.id }}" class="btn btn-sm btn-outline-primary me-2">Edit</a>

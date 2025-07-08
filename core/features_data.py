@@ -2,7 +2,7 @@ FEATURES = [
     {
         "name": "Checking Account",
         "type": "categorical",
-        "categories": ["A11", "A12", "A13", "A14"],
+        "categories": ["< 0 DM", "0 - 200 DM", "> 200 DM", "no account"],
         "explanation": "Status of the applicant's checking account balance.",
     },
     {
@@ -15,13 +15,28 @@ FEATURES = [
     {
         "name": "Credit History",
         "type": "categorical",
-        "categories": ["A30", "A31", "A32", "A33", "A34"],
+        "categories": [
+            "no credits taken",
+            "all paid back duly",
+            "existing credits paid",
+            "delay in payments",
+            "critical account"
+        ],
         "explanation": "History of the applicant's credit behavior.",
     },
     {
         "name": "Purpose",
         "type": "categorical",
-        "categories": ["A40", "A41", "A42", "A43", "A44", "A45", "A46", "A48"],
+        "categories": [
+            "car (new)",
+            "car (used)",
+            "furniture/equipment",
+            "radio/TV",
+            "education",
+            "retraining",
+            "business",
+            "other"
+        ],
         "explanation": "Reason for taking the credit.",
     },
     {
@@ -34,13 +49,25 @@ FEATURES = [
     {
         "name": "Savings Account/Bonds",
         "type": "categorical",
-        "categories": ["A61", "A62", "A63", "A64", "A65"],
+        "categories": [
+            "< 100 DM",
+            "100 - 500 DM",
+            "500 - 1000 DM",
+            "> 1000 DM",
+            "unknown/none"
+        ],
         "explanation": "Status of savings account or bonds.",
     },
     {
         "name": "Present Employment Since",
         "type": "categorical",
-        "categories": ["A71", "A72", "A73", "A74", "A75"],
+        "categories": [
+            "unemployed",
+            "< 1 year",
+            "1 - 4 years",
+            "4 - 7 years",
+            "> 7 years"
+        ],
         "explanation": "Number of years the applicant has been employed.",
     },
     {
@@ -53,13 +80,22 @@ FEATURES = [
     {
         "name": "Personal Status",
         "type": "categorical",
-        "categories": ["A91", "A92", "A93", "A94"],
+        "categories": [
+            "male-divorced/separated",
+            "male-single",
+            "male-married",
+            "female-divorced/separated/married"
+        ],
         "explanation": "Applicant's marital status and gender.",
     },
     {
         "name": "Other Debtors",
         "type": "categorical",
-        "categories": ["A101", "A102", "A103"],
+        "categories": [
+            "none",
+            "co-applicant",
+            "guarantor"
+        ],
         "explanation": "Other people responsible for the credit.",
     },
     {
@@ -72,7 +108,12 @@ FEATURES = [
     {
         "name": "Property",
         "type": "categorical",
-        "categories": ["A121", "A122", "A123", "A124"],
+        "categories": [
+            "real estate",
+            "insurance",
+            "car/other",
+            "unknown"
+        ],
         "explanation": "Applicant's owned property used as collateral.",
     },
     {
@@ -85,13 +126,21 @@ FEATURES = [
     {
         "name": "Other Instalment Plans",
         "type": "categorical",
-        "categories": ["A141", "A142", "A143"],
+        "categories": [
+            "bank",
+            "stores",
+            "none"
+        ],
         "explanation": "Other concurrent instalment plans the applicant may have.",
     },
     {
         "name": "Housing",
         "type": "categorical",
-        "categories": ["A151", "A152", "A153"],
+        "categories": [
+            "rent",
+            "own",
+            "for free"
+        ],
         "explanation": "Applicant's housing status.",
     },
     {
@@ -104,7 +153,12 @@ FEATURES = [
     {
         "name": "Job",
         "type": "categorical",
-        "categories": ["A171", "A172", "A173", "A174"],
+        "categories": [
+            "unemployed/unskilled",
+            "unskilled-resident",
+            "skilled",
+            "highly qualified"
+        ],
         "explanation": "Applicant's occupation type.",
     },
     {
@@ -117,13 +171,19 @@ FEATURES = [
     {
         "name": "Telephone",
         "type": "categorical",
-        "categories": ["A191", "A192"],
+        "categories": [
+            "none",
+            "yes, registered"
+        ],
         "explanation": "Whether applicant has a registered telephone.",
     },
     {
         "name": "Foreign Worker",
         "type": "categorical",
-        "categories": ["A201", "A202"],
+        "categories": [
+            "yes",
+            "no"
+        ],
         "explanation": "Whether applicant is a foreign worker.",
     },
 ]

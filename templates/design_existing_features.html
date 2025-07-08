@@ -28,9 +28,9 @@
     }
 
     .features-scroll-box {
-        max-height: 450px;       /* Adjust this if needed */
+        max-height: 450px;
         overflow-y: auto;
-        padding-right: 0.25rem;  /* Keeps scrollbar from hiding content */
+        padding-right: 0.25rem;
     }
 
     .summary-box {
@@ -108,12 +108,15 @@
     const selectedFromServer = {{ selected_features|safe }};
 
     for (const item of selectedFromServer) {
-        const match = item.match(/^(.+?)\[(.+?)\]$/);
+        
+        const match = item.match(/^(.+?)\[(.+?)\]\[(.+?)\]$/);
+        console.log(match);
         if (match) {
             const name = match[1];
             const binText = match[2];
+            const status = match[3];
             const binKey = `${name}::${binText.replace(/\s+/g, '')}`;
-            selectedFeatures.set(binKey, { name, binText });
+            selectedFeatures.set(binKey, { name, binText, status });
         }
     }
 
@@ -129,7 +132,9 @@
             li.innerHTML = `
                 <div>
                     <strong>${value.name}</strong>
-                    <span class="text-muted ms-2">[${value.binText}]</span>
+                    <span class="text-muted ms-2">[${value.binText}]
+                    ${value.status === 'protected' ? '&#9989;' : '&#10060;'}
+                    </span>
                 </div>
                 <button class="btn btn-sm btn-outline-danger" onclick="removeFeature('${key}')">Delete</button>
             `;
@@ -167,15 +172,22 @@
 
         if (feature.type === "numerical") {
             inputHTML = `
-                <p>Define a numeric range:</p>
                 <input type="number" class="form-control mb-2" id="binMin" placeholder="Min (${feature.min})" min="${feature.min}" max="${feature.max}">
                 <input type="number" class="form-control" id="binMax" placeholder="Max (${feature.max})" min="${feature.min}" max="${feature.max}">
+            `;
+            inputHTML2 = `
+                <input type="number" class="form-control mb-2" id="binMin2" placeholder="Min (${feature.min})" min="${feature.min}" max="${feature.max}">
+                <input type="number" class="form-control" id="binMax2" placeholder="Max (${feature.max})" min="${feature.min}" max="${feature.max}">
             `;
         } else if (feature.type === "categorical") {
             const options = feature.categories.map(c => `<option value="${c}">${c}</option>`).join('');
             inputHTML = `
-                <p>Select a category:</p>
                 <select class="form-select" id="binCategorySingle">
+                    ${options}
+                </select>
+            `;
+            inputHTML2 = `
+                <select class="form-select" id="binCategorySingle2">
                     ${options}
                 </select>
             `;
@@ -183,6 +195,8 @@
 
         document.getElementById("config-box").innerHTML = `
             <p><strong>${name}</strong></p>
+            <p><strong>Select the Group you want to protect.</strong></p>
+            <!--  
             <div class="form-check">
                 <input class="form-check-input" type="radio" name="binning" id="binAll" value="all" checked>
                 <label class="form-check-label" for="binAll">All</label>
@@ -191,12 +205,24 @@
                 <input class="form-check-input" type="radio" name="binning" id="binRange" value="range">
                 <label class="form-check-label" for="binRange">Custom</label>
             </div>
+            -->
 
-            <div class="binning-option mt-3" id="binning-options">
-                ${inputHTML}
+
+            <div class="d-flex align-items-start mt-3">
+                <div class="binning-option me-2 w-50" id="binning-options">
+                    ${inputHTML}
+                </div>
+                <button class="btn btn-primary btn-bin" onclick="addToSummary('${name}', '${feature.type}', 'protected')">Add</button>
             </div>
+            <hr>
+            <p><strong>Select the Group you don't want to protect.</strong></p>
 
-            <button class="btn btn-primary btn-bin mt-3" onclick="addToSummary('${name}', '${feature.type}')">Add</button>
+            <div class="d-flex align-items-start mt-3">
+                <div class="binning-option me-2 w-50" id="binning-options2">
+                    ${inputHTML2}
+                </div>
+                <button class="btn btn-primary btn-bin mt-3" onclick="addToSummary('${name}', '${feature.type}', 'non-protected')">Add</button>
+            </div>
         `;
 
         document.querySelectorAll('input[name="binning"]').forEach(r => {
@@ -208,13 +234,14 @@
         });
     }
 
-    function addToSummary(name, type) {
-        const isAll = document.getElementById("binAll").checked;
+    function addToSummary(name, type, status) {
+
+        const isAll = false;
 
         let binText = "All";
         let binKey = `${name}::ALL`;
 
-        if (!isAll) {
+        if (status == 'protected') {
             if (type === "numerical") {
                 const min = document.getElementById("binMin").value.trim();
                 const max = document.getElementById("binMax").value.trim();
@@ -231,6 +258,26 @@
             }
         }
 
+        else if (status == 'non-protected') {
+            if (type === "numerical") {
+                const min = document.getElementById("binMin2").value.trim();
+                const max = document.getElementById("binMax2").value.trim();
+                binText = `${min || '—'} to ${max || '—'}`;
+                binKey = getBinningKey(name, min, max);
+            } else if (type === "categorical") {
+                const selected = document.getElementById("binCategorySingle2").value;
+                
+                if (!selected) {
+                    alert("Please select a category.");
+                    return;
+                }
+                binText = selected;
+                binKey = getBinningKey(name, null, null, [selected]);
+            }
+        }
+
+        console.log(selectedFeatures);
+
         if (selectedFeatures.has(binKey)) {
             alert("This feature with the same binning is already selected.");
             return;
@@ -246,7 +293,7 @@
             return;
         }
 
-        selectedFeatures.set(binKey, { name, binText });
+        selectedFeatures.set(binKey, { name, binText, status });
 
         const summaryList = document.getElementById("summary-list");
         const emptyMsg = document.getElementById("empty-msg");
@@ -258,7 +305,7 @@
         li.innerHTML = `
             <div>
                 <strong>${name}</strong>
-                <span class="text-muted ms-2">[${binText}]</span>
+                <span class="text-muted ms-2">[${binText}] ${status === 'protected' ? '&#9989;' : '&#10060;'} </span>
             </div>
             <button class="btn btn-sm btn-outline-danger" onclick="removeFeature('${binKey}')">Delete</button>
         `;
@@ -281,7 +328,7 @@
     }
     function generateFeatureString() {
         const finalArray = Array.from(selectedFeatures.entries()).map(([key, value]) => {
-            return `${value.name}[${value.binText}]`;
+            return `${value.name}[${value.binText}][${value.status}]`;
         });
         return finalArray.join(",");
     }
