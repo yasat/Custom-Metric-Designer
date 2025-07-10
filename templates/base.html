@@ -29,10 +29,32 @@
 </head>
 <body>
 
-<div class="app-header">
-    <h1 class="mb-1">AI Fairness Metrics Builder</h1>
-    <p>Interactive tool to designing custom fairness metrics in AI system</p>
+<div class="app-header d-flex justify-content-between align-items-center flex-wrap">
+    <div>
+        <h1 class="mb-1">AI Fairness Metrics Builder</h1>
+        <p>Interactive tool to designing custom fairness metrics in AI system</p>
+    </div>
+    <div class="mt-2 mt-md-0">
+        <a href="{% url 'home' %}" class="btn btn-sm btn-success me-2">Home</a>
+        <a href="{% url 'superadmin_dashboard' %}" class="btn btn-sm btn-warning">Participant Dashboard</a>
+    </div>
 </div>
+
+<!-- <nav class="navbar navbar-expand-lg navbar-light bg-light px-3">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-bold" href="#">AI Fairness Metrics Builder</a>
+    <div class="collapse navbar-collapse">
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'home' %}">Home</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'superadmin_dashboard' %}">Superadmin Dashboard</a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav> -->
 
 <div class="container px-3 py-0">
     <div class="custom-section">
