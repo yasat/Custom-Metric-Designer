@@ -261,23 +261,26 @@ def render_custom_preview(staging):
     rhs_cards = DesignCustomOwnMetric.objects.filter(sid=staging, side="RHS", delete_flag=False).order_by('order')
     combine_cards = DesignCustomOwnMetric.objects.filter(sid=staging, side__isnull=True, delete_flag=False).order_by('order')
 
-    def build_block(cards):
+    def build_block(cards, threshold=None):
         blocks = []
         for i, card in enumerate(cards):
             conds = card.conditions.all().order_by('id')
-            conditions_str = "<br>".join([c.binning or c.feature for c in conds])
+            conditions_str = "<br>".join([
+                f"{c.feature} ∈ [{(c.binning or "").strip().split("[")[-1].strip("]")}]" if c.binning else c.feature
+                for c in conds
+            ])
 
             block = f"""
             <div class="card mb-2 p-2">
                 <strong>Probability Type:</strong> {card.probability_type}<br>
                 <strong>Conditions:</strong><br>
-                {conditions_str}
+                {conditions_str}<br>
+                <strong>Threshold:</strong> {threshold or 'N/A'}<br>
             </div>
             """
 
             blocks.append(block)
 
-            # Add boolean operator *between* cards
             if card.boolean_operator and i < len(cards) - 1:
                 blocks.append(f"<div class='text-center'><strong>{card.boolean_operator}</strong></div>")
 
@@ -285,27 +288,50 @@ def render_custom_preview(staging):
 
     # Compare Mode: LHS vs RHS
     if lhs_cards.exists() or rhs_cards.exists():
+        try:
+            global_cfg = DesignCustomOwnGlobal.objects.get(sid=staging)
+            threshold = global_cfg.threshold or 0.1
+        except DesignCustomOwnGlobal.DoesNotExist:
+            threshold = 0.1  # fallback
         return f"""
         <div class='row'>
             <div class='col'>
                 <h6 class='text-primary'>LHS</h6>
-                {build_block(lhs_cards)}
+                {build_block(lhs_cards, threshold)}
             </div>
             <div class='col text-center align-self-center'>
                 <strong class='text-danger'>VS</strong>
             </div>
             <div class='col'>
                 <h6 class='text-primary'>RHS</h6>
-                {build_block(rhs_cards)}
+                {build_block(rhs_cards, threshold)}
             </div>
         </div>
         """
     
     # Combine Mode: just render all blocks
     elif combine_cards.exists():
+        try:
+            global_cfg = DesignCustomOwnGlobal.objects.get(sid=staging)
+            threshold = global_cfg.threshold or 0.1
+        except DesignCustomOwnGlobal.DoesNotExist:
+            threshold = 0.1  # fallback
+
+        result = evaluate_combine_custom_own(combine_cards, data, threshold)
+        result_color = "success" if result["fair"] else "danger"
+        result_text = "Fair" if result["fair"] else "Unfair"
+
+        result_html = f"""
+        <div class='alert alert-{result_color}'>
+            <strong>Final Result:</strong> <span class='text-{result_color}'>{result_text}</span><br>
+            <strong>Threshold:</strong> {threshold}
+        </div>
+        """
+
         return f"""
         <div class='custom-combine-preview'>
-            {build_block(combine_cards)}
+            {build_block(combine_cards, threshold)}
+            {result_html}
         </div>
         """
     
