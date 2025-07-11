@@ -2,8 +2,20 @@ from django.contrib.auth.decorators import user_passes_test
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
 from core.models import *
+from .AI_model import *
 
 from collections import defaultdict
+
+FAIRNESS_METRIC_MAP = {
+    "demographic_parity": demographic_parity,
+    "equal_opportunity": equal_opportunity,
+    "predictive_equality": predictive_equality,
+    "outcome_test": outcome_test,
+    "equalized_odds": equalized_odds,
+    "conditional_statistical_parity": conditional_statistical_parity,
+    "counterfactual_fairness": counterfactual_fairness,
+}
+
 
 def superuser_required(view_func):
     return user_passes_test(lambda u: u.is_superuser)(view_func)
@@ -13,7 +25,6 @@ def render_metric_preview(metric, staging):
         return render_existing_preview(metric)
 
     elif isinstance(metric, DesignCombineMetrics):
-        print("again")
         return render_combine_existing_preview(staging)
 
     elif isinstance(metric, DesignCustomOwnMetric):
@@ -31,59 +42,219 @@ def render_existing_preview(metric):
     protected = []
     non_protected = []
 
+    try:
+        protected_df, non_protected_df, prot_cols, nonprot_cols = parse_feature_tags(
+            metric.features,
+            return_columns=True
+        )
+    except Exception as e:
+        return f"<div class='alert alert-danger'>Error parsing features: {str(e)}</div>"
+
+    threshold = (metric.threshold or 0.0)
+    metric_id = (metric.metric or "").lower().strip()
+
+    try:
+        if metric_id == "counterfactual_fairness":
+            if not (prot_cols and nonprot_cols):
+                raise ValueError("Counterfactual fairness requires 1 protected and 1 non-protected feature.")
+            col_a, col_b = prot_cols[0], nonprot_cols[0]
+            assessment = counterfactual_fairness(data, col_a, col_b, threshold=threshold)
+
+        elif metric_id == "conditional_statistical_parity":
+            fn = FAIRNESS_METRIC_MAP[metric_id]
+            assessment = fn(protected_df, non_protected_df, threshold, group_cols=[
+                "Job", "Credit History", "Savings Account/Bonds"
+            ])
+        else:
+            fn = FAIRNESS_METRIC_MAP.get(metric_id, FAIRNESS_METRIC_MAP["demographic_parity"])
+            assessment = fn(protected_df, non_protected_df, threshold)
+
+    except Exception as e:
+        return f"<div class='alert alert-danger'>Metric computation error: {str(e)}</div>"
+
     for item in metric.features.split(","):
         item = item.strip()
-        if not item: continue
+        if not item:
+            continue
         parts = item.split("[")
-        label = parts[0].strip()
+        label = parts[0].strip() + "[" + parts[1].strip()
         tag = parts[-1].replace("]", "").strip()
         if tag == "protected":
             protected.append(label)
         elif tag == "non-protected":
             non_protected.append(label)
 
+    result_color = "success" if assessment["fair"] else "danger"
+
     return f"""
-    <span class='badge bg-primary'>Protected:</span> {' AND '.join(protected)} |
-    <span class='badge bg-secondary'>Non-Protected:</span> {' AND '.join(non_protected)} |
-    <span class='badge bg-success'>Metric:</span> {metric.metric} |
-    <span class='badge bg-warning text-dark'>Threshold:</span> {metric.threshold}%
+    <div class="card p-3 border-{result_color} border-2 mb-2">
+        <div><strong>Protected:</strong> {' AND '.join(protected)}</div>
+        <div><strong>Non-Protected:</strong> {' AND '.join(non_protected)}</div>
+        <div><strong>Metric:</strong> {metric.metric}</div>
+        <div><strong>Threshold:</strong> {metric.threshold}%</div>
+        <div><strong>Value:</strong> {assessment['value']}</div>
+        <div><strong>Result:</strong> <span class="text-{result_color}">{'Fair' if assessment['fair'] else 'Unfair'}</span></div>
+    </div>
     """
+
+
 def render_combine_existing_preview(staging):
-    designs = DesignCombineMetrics.objects.filter(sid=staging, delete_flag=False).order_by('order')
-    blocks = []
+    designs = DesignCombineMetrics.objects.filter(sid=staging, delete_flag=False).order_by('group_level', 'order')
+    if not designs.exists():
+        return "<div class='alert alert-warning'>No combined designs found.</div>"
 
+    group_map = defaultdict(list)
     for d in designs:
-        protected = []
-        non_protected = []
+        group_map[d.group_level or 0].append(d)
 
-        for item in d.features.split(","):
-            item = item.strip()
-            if not item: continue
-            parts = item.split("[")
-            label = parts[0].strip()
-            tag = parts[-1].replace("]", "").strip()
-            if tag == "protected":
-                protected.append(label)
-            elif tag == "non-protected":
-                non_protected.append(label)
+    multiple_groups = len(group_map.keys()) > 1
+    all_blocks = []
+    final_result = False
+    resolved_group = None
+    group_logic_results = {}
+    has_custom_operator = False
 
-        block = f"""<div class='card p-2 m-1'>
-            <strong>Protected:</strong> {' AND '.join(protected)}<br>
-            <strong>Non-Protected:</strong> {' AND '.join(non_protected)}<br>
-            <strong>Metric:</strong> {d.metric}<br>
-            <strong>Threshold:</strong> {d.threshold}%
-        </div>"""
-        blocks.append((block, d.boolean_operator or "AND"))
+    for group_level in sorted(group_map.keys()):
+        group_blocks = []
+        logic_chain = []
+
+        for d in group_map[group_level]:
+            protected = []
+            non_protected = []
+
+            try:
+                protected_df, non_protected_df, prot_cols, nonprot_cols = parse_feature_tags(
+                    d.features,
+                    return_columns=True
+                )
+            except Exception as e:
+                block = f"<div class='card p-2 m-1 text-bg-danger'>Error parsing: {str(e)}</div>"
+                group_blocks.append(block)
+                logic_chain.append((False, d.boolean_operator or "AND"))
+                continue
+
+            threshold = (d.threshold or 0.0)
+            metric_id = (d.metric or "").lower().strip()
+
+            try:
+                if metric_id == "counterfactual_fairness":
+                    if not (prot_cols and nonprot_cols):
+                        raise ValueError("Counterfactual fairness requires 1 protected and 1 non-protected feature.")
+                    col_a, col_b = prot_cols[0], nonprot_cols[0]
+                    result = counterfactual_fairness(data, col_a, col_b, threshold=threshold)
+                elif metric_id == "conditional_statistical_parity":
+                    fn = FAIRNESS_METRIC_MAP[metric_id]
+                    result = fn(protected_df, non_protected_df, threshold, group_cols=[
+                        "Job", "Credit History", "Savings Account/Bonds"
+                    ])
+                else:
+                    fn = FAIRNESS_METRIC_MAP.get(metric_id, FAIRNESS_METRIC_MAP["demographic_parity"])
+                    result = fn(protected_df, non_protected_df, threshold)
+            except Exception as e:
+                result = {"value": "-", "threshold": threshold, "fair": False}
+                block = f"<div class='card p-2 m-1 text-bg-danger'>Metric error: {str(e)}</div>"
+                group_blocks.append(block)
+                logic_chain.append((False, d.boolean_operator or "AND"))
+                continue
+
+            # Extract label text
+            for item in d.features.split(","):
+                item = item.strip()
+                if not item:
+                    continue
+                parts = item.split("[")
+                label = parts[0].strip() + "[" + parts[1].strip()
+                tag = parts[-1].replace("]", "").strip()
+                if tag == "protected":
+                    protected.append(label)
+                elif tag == "non-protected":
+                    non_protected.append(label)
+
+            block = f"""<div class='card p-2 m-1'>
+                <strong>Group Level:</strong> {group_level}<br>
+                <strong>Protected:</strong> {' AND '.join(protected)}<br>
+                <strong>Non-Protected:</strong> {' AND '.join(non_protected)}<br>
+                <strong>Metric:</strong> {d.metric}<br>
+                <strong>Threshold:</strong> {d.threshold}%<br>
+                <strong>Value:</strong> {result['value']}<br>
+                <strong>Result:</strong> {"Fair" if result['fair'] else "Unfair"}
+            </div>"""
+            group_blocks.append(block)
+
+            op = d.boolean_operator or "AND"
+            if op not in ["AND", "OR"]:
+                has_custom_operator = True
+
+            logic_chain.append((result["fair"], op))
+
+        custom_op_found = any(op not in ["AND", "OR"] for _, op in logic_chain)
+
+        if custom_op_found:
+            group_result = None
+        else:
+            group_result = logic_chain[0][0] if logic_chain else False
+            prev_op = None
+            for val, op in logic_chain:
+                if prev_op is None:
+                    prev_op = op
+                    continue
+                if prev_op == "AND":
+                    group_result = group_result and val
+                elif prev_op == "OR":
+                    group_result = group_result or val
+                prev_op = op
+
+        group_logic_results[group_level] = group_result
+
+        visual = ""
+        for i, block in enumerate(group_blocks):
+            visual += block
+            if i < len(group_blocks) - 1:
+                visual += f"<div class='text-center'><strong>{logic_chain[i][1]}</strong></div>"
+
+        if multiple_groups:
+            if group_result is None:
+                visual += f"<div class='alert alert-warning'>Group Level {group_level} Result: <strong>Researcher input required due to custom operator</strong></div>"
+            else:
+                visual += f"<div class='alert alert-secondary'>Group Level {group_level} Result: <strong>{'Fair' if group_result else 'Unfair'}</strong></div>"
+
+        all_blocks.append((group_level, visual))
+
+    # Evaluate final result
+    if has_custom_operator:
+        final_result = None
+    else:
+        if multiple_groups:
+            for group_level in sorted(group_logic_results.keys()):
+                if group_logic_results[group_level]:
+                    final_result = True
+                    resolved_group = group_level
+                    break
+            else:
+                final_result = False
+        else:
+            final_result = next(iter(group_logic_results.values()), False)
 
     final_html = ""
-    for i in range(len(blocks)):
-        block, op = blocks[i]
-        print(i, (block, op))
-        final_html += block
-        if i < len(blocks) - 1:
-            final_html += f"<div class='text-center'><strong>{op}</strong></div>"
-    
+    for _, block_html in all_blocks:
+        final_html += block_html + "<hr>"
+
+    # Final result rendering
+    if final_result is None:
+        result_text = "<strong>Final Combined Result:</strong> <span class='text-warning'>Researcher input required due to custom operator.</span>"
+    else:
+        result_text = f"<strong>Final Combined Result:</strong> {'Fair' if final_result else 'Unfair'}"
+        if multiple_groups:
+            result_text += f"<br><strong>Resolved At Group Level:</strong> {resolved_group}"
+
+    final_html += f"""
+        <div class='alert alert-info'>
+            {result_text}
+        </div>
+    """
+
     return final_html
+
 
 def render_custom_preview(staging):
     lhs_cards = DesignCustomOwnMetric.objects.filter(sid=staging, side="LHS", delete_flag=False).order_by('order')
