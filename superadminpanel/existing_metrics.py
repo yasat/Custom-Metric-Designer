@@ -5,7 +5,10 @@ from sklearn.metrics.pairwise import euclidean_distances
 try:
     data_5m = pd.read_csv('superadminpanel/full_dataset_5m.csv')
 except:
-    data_5m = pd.read_csv('superadminpanel/full_dataset.csv')
+    try:
+        data_5m = pd.read_csv('superadminpanel/full_dataset.csv')
+    except:
+        data_5m = pd.read_csv('superadminpanel/full_dataset_old.csv')
 
 def demographic_parity(protected_df, nonprotected_df, threshold=0.1):
     p1 = protected_df["pred"].mean()
