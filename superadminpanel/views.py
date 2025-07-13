@@ -62,9 +62,7 @@ def render_existing_preview(metric):
 
         elif metric_id == "conditional_statistical_parity":
             fn = FAIRNESS_METRIC_MAP[metric_id]
-            assessment = fn(protected_df, non_protected_df, threshold, group_cols=[
-                "Job", "Credit History", "Savings Account/Bonds"
-            ])
+            assessment = fn(protected_df, non_protected_df, threshold, group_cols=[])
         else:
             fn = FAIRNESS_METRIC_MAP.get(metric_id, FAIRNESS_METRIC_MAP["demographic_parity"])
             assessment = fn(protected_df, non_protected_df, threshold)
@@ -92,7 +90,7 @@ def render_existing_preview(metric):
         <div><strong>Non-Protected:</strong> {' AND '.join(non_protected)}</div>
         <div><strong>Metric:</strong> {metric.metric}</div>
         <div><strong>Threshold:</strong> {metric.threshold}%</div>
-        <div><strong>Value:</strong> {assessment['value']}</div>
+        <div><strong>Assessment Score:</strong> {assessment['value']}</div>
         <div><strong>Result:</strong> <span class="text-{result_color}">{'Fair' if assessment['fair'] else 'Unfair'}</span></div>
     </div>
     """
@@ -176,7 +174,7 @@ def render_combine_existing_preview(staging):
                 <strong>Non-Protected:</strong> {' AND '.join(non_protected)}<br>
                 <strong>Metric:</strong> {d.metric}<br>
                 <strong>Threshold:</strong> {d.threshold}%<br>
-                <strong>Value:</strong> {result['value']}<br>
+                <strong>Assessment Score:</strong> {result['value']}<br>
                 <strong>Result:</strong> {"Fair" if result['fair'] else "Unfair"}
             </div>"""
             group_blocks.append(block)
@@ -239,16 +237,19 @@ def render_combine_existing_preview(staging):
     for _, block_html in all_blocks:
         final_html += block_html + "<hr>"
 
+    result_color = "warning" if final_result is None else "success" if final_result else "danger"
     # Final result rendering
     if final_result is None:
-        result_text = "<strong>Final Combined Result:</strong> <span class='text-warning'>Researcher input required due to custom operator.</span>"
+        result_text = "<strong>Final Combined Result:</strong> <span class='text-{result_color}'>Researcher input required due to custom operator.</span>"
     else:
-        result_text = f"<strong>Final Combined Result:</strong> {'Fair' if final_result else 'Unfair'}"
+        result_text = f"<strong>Final Combined Result:</strong> <span class='text-{result_color}'>{'Fair' if final_result else 'Unfair'}</span>"
         if multiple_groups:
             result_text += f"<br><strong>Resolved At Group Level:</strong> {resolved_group}"
 
+    
+    
     final_html += f"""
-        <div class='alert alert-info'>
+        <div  class='alert alert-{result_color}'>
             {result_text}
         </div>
     """
@@ -273,9 +274,8 @@ def render_custom_preview(staging):
             block = f"""
             <div class="card mb-2 p-2">
                 <strong>Probability Type:</strong> {card.probability_type}<br>
-                <strong>Conditions:</strong><br>
+                <strong>Conditions:</strong>
                 {conditions_str}<br>
-                <strong>Threshold:</strong> {threshold or 'N/A'}<br>
             </div>
             """
 
@@ -293,11 +293,54 @@ def render_custom_preview(staging):
             threshold = global_cfg.threshold or 0.1
         except DesignCustomOwnGlobal.DoesNotExist:
             threshold = 0.1  # fallback
+
+        result = evaluate_combine_custom_own(lhs_cards, data, threshold)
+        result_color = "success" if result["fair"] else "danger"
+        result_text = "Fair" if result["fair"] else "Unfair"
+
+        avg_prob_lhs = np.mean([d["probability"] for d in result["details"]]) * 100 if result["details"] else 0.0
+
+        result_html1 = f"""
+        <div class='alert alert-{result_color}'>
+            <strong>Assessment Score:</strong> <span class='text-{result_color}'>{avg_prob_lhs}</span><br>
+            <strong>Threshold:</strong> <span class='text-{result_color}'> {threshold}%</span><br>
+            <strong>Final Result:</strong> <span class='text-{result_color}'>{result_text}</span>
+        </div>
+        """
+
+        result = evaluate_combine_custom_own(rhs_cards, data, threshold)
+        result_color = "success" if result["fair"] else "danger"
+        result_text = "Fair" if result["fair"] else "Unfair"
+
+        avg_prob_rhs = np.mean([d["probability"] for d in result["details"]]) * 100 if result["details"] else 0.0
+        print(f"Avg LHS: {avg_prob_lhs}, Avg RHS: {avg_prob_rhs}")
+
+        result_html2 = f"""
+        <div class='alert alert-{result_color}'>
+            <strong>Assessment Score:</strong> <span class='text-{result_color}'>{avg_prob_rhs}</span><br>
+            <strong>Threshold:</strong> <span class='text-{result_color}'> {threshold}%</span><br>
+            <strong>Final Result:</strong> <span class='text-{result_color}'>{result_text}</span>
+        </div>
+        """
+
+        delta = abs(avg_prob_lhs - avg_prob_rhs)
+        vs_fair = delta <= threshold
+
+        vs_color = "success" if vs_fair else "danger"
+        vs_text = "Comparable" if vs_fair else "Significantly Different"
+
+        vs_html = f"""
+        <div class='alert alert-{vs_color} mt-3'>
+            <strong>LHS vs RHS:</strong> {vs_text} (Δ = {round(delta, 2)}%)
+        </div>
+        """
+
         return f"""
         <div class='row'>
             <div class='col'>
                 <h6 class='text-primary'>LHS</h6>
                 {build_block(lhs_cards, threshold)}
+                {result_html1}
             </div>
             <div class='col text-center align-self-center'>
                 <strong class='text-danger'>VS</strong>
@@ -305,8 +348,10 @@ def render_custom_preview(staging):
             <div class='col'>
                 <h6 class='text-primary'>RHS</h6>
                 {build_block(rhs_cards, threshold)}
+                {result_html2}
             </div>
         </div>
+        {vs_html}
         """
     
     # Combine Mode: just render all blocks
@@ -323,8 +368,9 @@ def render_custom_preview(staging):
 
         result_html = f"""
         <div class='alert alert-{result_color}'>
-            <strong>Final Result:</strong> <span class='text-{result_color}'>{result_text}</span><br>
-            <strong>Threshold:</strong> {threshold}
+            <strong>Assessment Score:</strong> <span class='text-{result_color}'>{np.mean([d["probability"] for d in result["details"]]) * 100 if result["details"] else 0.0}</span><br>
+            <strong>Threshold:</strong> <span class='text-{result_color}'> {threshold}%</span><br>
+            <strong>Final Result:</strong> <span class='text-{result_color}'>{result_text}</span>
         </div>
         """
 
@@ -338,9 +384,28 @@ def render_custom_preview(staging):
     return "No custom logic defined"
 
 
-def render_procedural_preview(staging):
+def render_procedural_preview(staging, importance_path="superadminpanel/feature_importance.csv"):
+    try:
+        imp_df = pd.read_csv(importance_path)
+        imp_map = dict(zip(imp_df['feature'], imp_df['importance']))
+    except Exception as e:
+        return f"<div class='alert alert-danger'>Error loading importance CSV: {e}</div>"
+
     designs = DesignProceduralMetric.objects.filter(sid=staging, delete_flag=False).order_by('order')
     badges = []
+
+    total = designs.count()
+    if total == 0:
+        return "<em>No procedural logic defined.</em>"
+
+    weight_per_condition = 100 / total
+    cumulative_score = 0.0
+
+    try:
+        global_cfg = DesignProceduralGlobal.objects.get(sid=staging)
+        threshold = global_cfg.threshold or 60.0
+    except DesignProceduralGlobal.DoesNotExist:
+        threshold = 60.0
 
     for d in designs:
         conds = d.conditions.all().order_by('id')
@@ -348,28 +413,112 @@ def render_procedural_preview(staging):
             continue
 
         c = conds[0]
+        fair = False
+        label = ""
+        reason = ""
 
-        if d.label_type == "contribute":
-            label = f"{c.feature} contributes"
-        elif d.label_type == "does_not_contribute":
-            label = f"{c.feature} does NOT contribute"
-        elif d.label_type == "feature_importance":
-            label = f"{c.feature} importance {c.logic_with_next} {c.value}"
-        elif d.label_type == "importance_by_group":
-            label = f"{c.feature} group diff {c.logic_with_next} {c.value}"
-        elif d.label_type == "pre_checks":
+        print(d.label_type)
+        if d.label_type == "pre_checks":
+            fair = True
             label = f"{c.feature} decision = {c.value}"
+
+        elif d.label_type == "feature_importance":
+            actual_imp = imp_map.get(c.feature, 0)
+            expected = float(c.value)
+            op = c.logic_with_next.strip()
+            label = f"{c.feature} importance {op} {expected}"
+            if op == ">" and actual_imp > expected:
+                fair = True
+            elif op == ">=" and actual_imp >= expected:
+                fair = True
+            elif op == "<" and actual_imp < expected:
+                fair = True
+            elif op == "<=" and actual_imp <= expected:
+                fair = True
+            elif op == "==" and actual_imp == expected:
+                fair = True
+            else:
+                fair = False
+
+        elif d.label_type == "does_not_contribute":
+            actual_imp = imp_map.get(c.feature, 0)
+            fair = actual_imp < 1e-6
+            label = f"{c.feature} does NOT contribute"
+
+        elif d.label_type == "contribute":
+            actual_imp = imp_map.get(c.feature, 0)
+            fair = actual_imp > 0.0
+            label = f"{c.feature} contributes"
+
+        elif d.label_type == "importance_by_group":
+            base_a = (c.feature or "").strip()
+            base_b = (c.value or "").strip()
+            op = c.logic_with_next.strip()
+
+            group_a_feats = [f for f in imp_map if f.startswith(f"{base_a}[")]
+            group_b_feats = [f for f in imp_map if f.startswith(f"{base_b}[")]
+
+            imp_a_sum = sum([imp_map.get(f, 0) for f in group_a_feats])
+            imp_b_sum = sum([imp_map.get(f, 0) for f in group_b_feats])
+
+            label = f"{base_a} group sum {op} {base_b}"
+
+            if op == ">" and imp_a_sum > imp_b_sum:
+                fair = True
+            elif op == ">=" and imp_a_sum >= imp_b_sum:
+                fair = True
+            elif op == "<" and imp_a_sum < imp_b_sum:
+                fair = True
+            elif op == "<=" and imp_a_sum <= imp_b_sum:
+                fair = True
+            elif op == "==" and imp_a_sum == imp_b_sum:
+                fair = True
+            else:
+                fair = False
+
         else:
             label = f"{c.feature} ({d.label_type})"
+            fair = True
 
-        badges.append(f"<span class='badge bg-secondary m-1'>{label}</span>")
+        if fair:
+            cumulative_score += weight_per_condition
+            badge_color = "success"
+        else:
+            badge_color = "danger"
 
-    return "<div>" + " ".join(badges) + "</div>" if badges else "<em>No procedural logic defined.</em>"
+        badges.append(f"<span class='badge bg-{badge_color} m-1'>{label}</span>")
+
+    fair_overall = cumulative_score >= threshold
+    result_color = "success" if fair_overall else "danger"
+    result_text = "Fair" if fair_overall else "Unfair"
+
+    result_html = f"""
+    <div class='alert alert-{result_color} mt-3'>
+        <strong>Threshold:</strong> {threshold}%<br>
+        <strong>Cumulative Score:</strong> {round(cumulative_score, 2)}%<br>
+        <strong>Final Result:</strong> <span class='text-{result_color}'>{result_text}</span>
+    </div>
+    """
+
+    return "<div>" + " ".join(badges) + result_html + "</div>"
 
 
 def render_affordability_preview(design):
     lhs = design.cards.filter(side="LHS", delete_flag=False).order_by('created_at')
     rhs = design.cards.filter(side="RHS", delete_flag=False).order_by('created_at')
+
+    lhs_mask = parse_affordability_condition_mask(lhs, data, FEATURE_CATEGORY_MAP)
+    rhs_mask = parse_affordability_condition_mask(rhs, data, FEATURE_CATEGORY_MAP)
+
+    lhs_score = (data[lhs_mask]["label"] == 1).mean() if lhs_mask.any() else 0.0
+    rhs_score = (data[rhs_mask]["label"] == 1).mean() if rhs_mask.any() else 0.0
+
+    lhs_score = round(lhs_score * 100, 2)
+    rhs_score = round(rhs_score * 100, 2)
+
+    threshold = design.threshold or 0.0
+    diff = round(abs(lhs_score - rhs_score), 2)
+    fair = diff <= threshold
 
     def build_card(side_label, cards):
         conditions = "<br>".join([f"{c.feature} {c.operator} {c.value}" for c in cards]) or "<em>No conditions</em>"
@@ -383,6 +532,19 @@ def render_affordability_preview(design):
     lhs_block = build_card("Credit Conditions (LHS)", lhs)
     rhs_block = build_card("Personal Conditions (RHS)", rhs)
 
+    result_color = "success" if fair else "danger"
+    result_text = "Balanced" if fair else "Unbalanced"
+
+    result_html = f"""
+        <div class='alert alert-{result_color} mt-2'>
+            <strong>Assessment Credit Score:</strong> {lhs_score}%<br>
+            <strong>Assessment Personal Score:</strong> {rhs_score}%<br>
+            <strong>Assessment Difference:</strong> {diff}%<br>
+            <strong>Threshold:</strong> {threshold}%<br>
+            <strong>Final Result:</strong> <span class='text-{result_color}'>{result_text}</span>
+        </div>
+    """
+
     return f"""
     <div class="row">
         <div class="col-md-5">
@@ -394,6 +556,7 @@ def render_affordability_preview(design):
         <div class="col-md-5">
             {rhs_block}
         </div>
+        {result_html}
     </div>
     """
 
@@ -455,7 +618,6 @@ def superadmin_view_metrics(request, pid):
 
     staging_data = []
 
-    print(len(staging_objects), "staging objects found for pid:", pid)
     for staging in staging_objects:
         metrics = []
 
@@ -478,11 +640,18 @@ def superadmin_view_metrics(request, pid):
 
         # Custom Own: combine or compare, single logic block
         elif staging.metric_type == "custom_own" and staging.perspective == "outcome":
-            metrics.append({
-                "type": "Custom Logic",
-                "preview": render_custom_preview(staging),
-                "edit_url": reverse('custom_own_logic_review', args=[staging.id])
-            })
+            if(len(DesignCustomOwnMetric.objects.filter(sid=staging, side="LHS", delete_flag=False)) == 0):
+                metrics.append({
+                    "type": "Custom Logic",
+                    "preview": render_custom_preview(staging),
+                    "edit_url": reverse('custom_own_logic_review', args=[staging.id])
+                })
+            else:
+                metrics.append({
+                    "type": "Custom Logic",
+                    "preview": render_custom_preview(staging),
+                    "edit_url": reverse('custom_own_compare_final_review', args=[staging.id])
+                })
 
         # Procedural: one edit button per staging, single preview of all cards
         if staging.perspective == "procedural" and staging.procedural_designs.exists():

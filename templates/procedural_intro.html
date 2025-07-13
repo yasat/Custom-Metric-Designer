@@ -1,13 +1,20 @@
 {% extends "base.html" %}
 {% block title %}Procedural Fairness Intro | CMD{% endblock %}
 {% block content %}
-<div class="text-center my-5 px-4" style="max-width: 800px; margin: auto;">
-    <h3 class="fw-bold mb-4">Design a Procedural Fairness Metric</h3>
-    <p class="lead">
-        You'll create logic cards based on whether features contribute to decision-making,
-        are used unfairly, or need pre-check conditions.
-    </p>
-    <p>Let’s start step-by-step. You’ll be able to review and edit as you go.</p>
-    <a href="{% url 'procedural_builder' staging_id=staging_id %}" class="btn btn-success rounded-pill px-5 py-3 fs-5 mt-4">Get Started</a>
+
+<div class="page-wrapper d-flex align-items-center justify-content-center">
+    <div class="text-center px-4" style="max-width: 800px;">
+        <h4 class="fw-bold mb-4">Design a Procedural Fairness Metric</h4>
+        <p class="lead">You'll create logic cards based on whether features contribute to decision-making, are used unfairly, or need pre-check conditions.</p>
+        <ol class="text-start mt-3">
+            <li>Select a procedural logic label (Feature contributions, Feature Importance Limits, Pre-Checks etc.)</li>
+            <li>Fill the logic card with relevant conditions</li>
+            <li>Currently each condition will get equal weightage</li>
+            <li>Set a global threshold and finalize</li>
+            <li>Review and optionally save your configuration</li>
+        </ol>
+
+        <a href="{% url 'procedural_builder' staging_id=staging_id %}" class="btn btn-success rounded-pill px-5 py-3 fs-5 mt-4">Next</a>
+    </div>
 </div>
 {% endblock %}

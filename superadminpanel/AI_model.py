@@ -3,7 +3,7 @@ import numpy as np
 from core.features_data import FEATURE_CATEGORY_MAP
 from .existing_metrics import *
 
-data = pd.read_csv('superadminpanel/full_dataset.csv')
+data = pd.read_csv('superadminpanel/full_dataset_old.csv')
 
 
 def parse_feature_tags(feature_str, df=data, feature_category_map=FEATURE_CATEGORY_MAP, return_columns=False):
@@ -83,8 +83,6 @@ def parse_custom_condition_mask(conditions, df=data, feature_category_map=FEATUR
         label = cond.feature.strip()
         value = (cond.binning or "").strip().split("[")[-1].strip("]")
 
-        print(f"[Processing Condition] {label}[{value}]")
-
         if not label or not value:
             print(f"[Skipping] Empty label or value in condition: {cond}")
             continue
@@ -120,6 +118,19 @@ def parse_custom_condition_mask(conditions, df=data, feature_category_map=FEATUR
                 print(f"[Range Error] {label}[{value}] → {e}")
                 continue
 
+        elif label in ['predicted', 'ground_truth']:
+            if value not in ['true', 'false']:
+                print(f"[Invalid Value] {label}[{value}] must be 'true' or 'false'")
+                continue
+            if label == 'predicted' and value == 'true':
+                condition = df['pred'] == 1
+            elif label == 'ground_truth' and value == 'true':
+                condition = df['label'] == 1
+            elif label == 'predicted' and value == 'false':
+                condition = df['pred'] != 1
+            elif label == 'ground_truth' and value == 'false':
+                condition = df['label'] != 1
+
         else:
             print(f"[Unsupported] {label}[{value}] is neither categorical nor range-matching")
             continue
@@ -133,6 +144,7 @@ def compute_conditional_probability(df, conditions, probability_type):
     sub_df = df[mask]
 
     if sub_df.empty:
+        print("[Warning] No records match the given conditions")
         return 0.0
 
     if probability_type == "predicted_true":
@@ -161,12 +173,12 @@ def evaluate_combine_custom_own(cards, df, global_threshold):
         op = card.boolean_operator or "AND"
 
         prob = compute_conditional_probability(df, conds, prob_type)
+        print(prob, global_threshold)
 
-        print(f"[Card {i+1}] Conditions: {conds}, Probability Type: {prob_type}, Computed Probability: {prob}")
         result = prob >= global_threshold
         logic_chain.append((result, op))
         card_outputs.append({
-            "probability": round(prob, 4),
+            "probability": round(prob, 2),
             "threshold": global_threshold,
             "fair": result,
             "op": op,
@@ -201,3 +213,80 @@ def evaluate_combine_custom_own(cards, df, global_threshold):
         "fair": final_result,
         "details": card_outputs
     }
+
+def parse_affordability_condition_mask(cards, df, feature_category_map):
+    mask = pd.Series([True] * len(df))
+
+    op_map = {
+        "=": lambda x, y: x == y,
+        "==": lambda x, y: x == y,
+        "!=": lambda x, y: x != y,
+        "<": lambda x, y: x < y,
+        "<=": lambda x, y: x <= y,
+        ">": lambda x, y: x > y,
+        ">=": lambda x, y: x >= y,
+    }
+
+    for card in cards:
+        feature = (card.feature or "").strip()
+        operator = (card.operator or "").strip()
+        raw_value = (card.value or "").strip()
+
+        if not feature or not raw_value:
+            print(f"[Skipping] Empty feature or value in card: {card}")
+            continue
+
+        if feature in feature_category_map:
+            group_code = feature_category_map[feature].get(raw_value)
+            if not group_code:
+                print(f"[Missing Group Code] {feature}[{raw_value}] not in FEATURE_CATEGORY_MAP")
+                continue
+
+            column = f"{feature}[{group_code}]"
+            if column not in df.columns:
+                print(f"[Missing Column] {column} not found in dataset")
+                continue
+
+            condition = df[column] == True
+
+        elif feature in df.columns and df[feature].dtype in [bool, int, float]:
+            try:
+                if df[feature].dtype == bool:
+                    val = raw_value.lower() in ["1", "true", "yes"]
+                elif pd.api.types.is_numeric_dtype(df[feature]):
+                    val = float(raw_value)
+                else:
+                    val = raw_value
+            except Exception as e:
+                print(f"[Conversion Error] {feature}: {raw_value} → {e}")
+                continue
+
+            if operator in op_map:
+                condition = op_map[operator](df[feature], val)
+            else:
+                print(f"[Invalid Operator] {operator} for {feature}")
+                continue
+
+        elif (
+            feature in df.columns and 
+            pd.api.types.is_numeric_dtype(df[feature]) and 
+            any(s in raw_value for s in ["-", " to "])
+        ):
+            try:
+                parts = raw_value.replace(" to ", "-").split("-")
+                if len(parts) != 2:
+                    raise ValueError(f"Bad range: {raw_value}")
+                min_val = float(parts[0].strip())
+                max_val = float(parts[1].strip())
+                condition = (df[feature] >= min_val) & (df[feature] <= max_val)
+            except Exception as e:
+                print(f"[Range Error] {feature}[{raw_value}] → {e}")
+                continue
+
+        else:
+            print(f"[Unsupported Condition] Feature: {feature}, Value: {raw_value}")
+            continue
+
+        mask &= condition
+
+    return mask

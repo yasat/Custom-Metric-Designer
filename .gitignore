@@ -8,3 +8,4 @@ staticfiles/
 static/
 */migrations/
 !*/migrations/__init__.py
+superadminpanel/full_dataset_5m.csv

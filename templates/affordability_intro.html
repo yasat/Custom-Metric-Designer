@@ -2,14 +2,20 @@
 {% block title %}Affordability Metric Intro | CMD{% endblock %}
 
 {% block content %}
-<div class="text-center my-5 px-4" style="max-width: 800px; margin: auto;">
-    <h3 class="fw-bold mb-4">Design an Affordability Fairness Metric</h3>
-    <p class="lead">
-        Compare features influencing creditworthiness (LHS) against personal/background factors (RHS).
-    </p>
-    <p>Let’s build it step-by-step. You can review and edit along the way.</p>
-    <a href="{% url 'affordability_builder' staging_id=staging_id %}" class="btn btn-success rounded-pill px-5 py-3 fs-5 mt-4">
-        Get Started
-    </a>
+<div class="page-wrapper d-flex align-items-center justify-content-center">
+    <div class="text-center px-4" style="max-width: 800px;">
+        <h4 class="fw-bold mb-4">Design an Affordability Fairness Metric</h4>
+        <p class="lead">Compare features influencing creditworthiness (LHS) against personal/background factors (RHS).</p>
+        <ol class="text-start mt-3">
+            <li>Select Features and conditions for creditworthiness on Left Hand Side card.</li>
+            <li>Select Features and conditions for personal/background factors on Right Hand Side card.</li>
+            <li>By default, both LHS and RHS are compared with eachother. But if you require any other logic, please let the researcher know your preferences.</li>
+            <li>Set a global threshold to determine when the metric flags an outcome.</li>
+            <li>Review and optionally save your configuration</li>
+        </ol>
+
+        <a href="{% url 'affordability_builder' staging_id=staging_id %}" class="btn btn-success rounded-pill px-5 py-3 fs-5 mt-4">Next</a>
+    </div>
 </div>
+
 {% endblock %}

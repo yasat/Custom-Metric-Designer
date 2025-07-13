@@ -30,11 +30,15 @@ def get_valid_condition_labels(probability_type):
         return []
 
     if probability_type.startswith("predicted"):
-        return [l for l in PROBABILITY_LABELS if l[0].startswith("ground_truth")]
+        a =  [l for l in PROBABILITY_LABELS if l[0].startswith("ground_truth")]
     elif probability_type.startswith("ground_truth"):
-        return [l for l in PROBABILITY_LABELS if l[0].startswith("predicted")]
+        a =  [l for l in PROBABILITY_LABELS if l[0].startswith("predicted")]
+    else:
+        a = PROBABILITY_LABELS
 
-    return []
+    print(a)
+    print(PROBABILITY_LABELS)
+    return PROBABILITY_LABELS
 
 def home(request):
 
@@ -635,7 +639,7 @@ def custom_own_card_edit(request, staging_id, card_id):
         "staging_id": staging.id,
         "metric": metric,
         "features": FEATURES,
-        "labels": get_valid_condition_labels(metric.probability_type),
+        "labels": PROBABILITY_LABELS,
         "conditions": existing_conditions,
         "probability_labels": PROBABILITY_LABELS,
     })
@@ -767,11 +771,29 @@ def custom_own_card_edit_compare(request, staging_id, card_id):
 
         DesignCustomOwnCondition.objects.filter(metric=metric).delete()
 
-        total = int(request.POST.get("total_conditions", 0))
         used_label_condition = False
+        label_cond = request.POST.get("label_condition")
+        if label_cond:
+
+            
+            binning = label_cond.split("_")[-1]
+            feature = label_cond.strip("_"+binning)
+            binning = feature + "[" + binning + "]"
+            DesignCustomOwnCondition.objects.create(
+                metric=metric,
+                feature=feature,
+                binning=binning,
+                logic_with_next="AND"
+            )
+            used_label_condition = True
+
+        total = int(request.POST.get("total_conditions", 0))
+        
 
         for i in range(total):
             feature = request.POST.get(f"feature_{i}")
+            if(feature is None):
+                continue
             logic = request.POST.get(f"logic_{i}")
             custom_logic = request.POST.get(f"custom_logic_{i}", "").strip()
 
@@ -788,11 +810,12 @@ def custom_own_card_edit_compare(request, staging_id, card_id):
                 value = request.POST.get(f"binning_{i}")
                 binning = f"{feature}[{value}]"
 
+            print(feature)
             DesignCustomOwnCondition.objects.create(
                 metric=metric,
                 feature=feature,
                 binning=binning,
-                logic_with_next=custom_logic if logic == "CUSTOM" and custom_logic else logic
+                logic_with_next=custom_logic if logic == "CUSTOM" and custom_logic else logic if logic else "AND"
             )
 
         if metric.order == 0:
@@ -814,7 +837,7 @@ def custom_own_card_edit_compare(request, staging_id, card_id):
         "staging_id": staging.id,
         "metric": metric,
         "features": FEATURES,
-        "labels": get_valid_condition_labels(metric.probability_type),
+        "labels": PROBABILITY_LABELS,
         "conditions": existing_conditions,
         "probability_labels": PROBABILITY_LABELS,
     })

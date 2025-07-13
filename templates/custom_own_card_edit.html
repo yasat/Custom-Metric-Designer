@@ -24,7 +24,7 @@
     <div class="btn-group" role="group">
       {% for label in labels %}
         <button type="button" class="btn btn-outline-primary label-toggle"
-                data-type="{{ label.0|cut:'_true'|cut:'_false' }}"
+                data-group="{% if 'ground_truth' in label.0 %}ground_truth{% elif 'predicted' in label.0 %}predicted{% endif %}"
                 data-value="{{ label.0 }}">
           {{ label.1 }}
         </button>
@@ -179,11 +179,22 @@ document.addEventListener("DOMContentLoaded", function () {
   function updateToggleVisibility() {
     const val = probSelect.value;
     toggleGroup.style.display = val ? "block" : "none";
-    const type = val.startsWith("predicted") ? "ground_truth" : "predicted";
+
+    let showGroup = null;
+
+    if (val.includes("predicted")) {
+      showGroup = "ground_truth";
+    } else if (val.includes("ground_truth")) {
+      showGroup = "predicted";
+    }
 
     labelButtons.forEach(btn => {
-      const isAllowed = btn.dataset.type === type;
-      btn.style.display = isAllowed ? "inline-block" : "none";
+      const btnGroup = btn.dataset.group;
+      if (showGroup && btnGroup === showGroup) {
+        btn.style.display = "inline-block";
+      } else {
+        btn.style.display = "none";
+      }
       btn.classList.remove("active");
     });
 
@@ -193,26 +204,14 @@ document.addEventListener("DOMContentLoaded", function () {
   labelButtons.forEach(btn => {
     btn.addEventListener("click", function () {
       const selected = btn.dataset.value;
-      const container = document.getElementById("conditions-container");
 
       if (btn.classList.contains("active")) {
         labelInput.value = "";
         btn.classList.remove("active");
-
-        const blocks = container.querySelectorAll(".condition-block");
-        if (blocks.length > 0) {
-          const logic = blocks[0].previousElementSibling;
-          if (logic && logic.classList.contains("logic-block")) logic.remove();
-          blocks[0].remove();
-          conditionIndex--;
-          document.getElementById("total_conditions").value = conditionIndex;
-        }
       } else {
         labelButtons.forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         labelInput.value = selected;
-
-        addCondition(true);
       }
     });
   });
@@ -239,11 +238,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  probSelect.addEventListener("change", () => {
-    labelButtons.forEach(b => b.classList.remove("active"));
-    labelInput.value = "";
-    updateToggleVisibility();
-  });
+  probSelect.addEventListener("change", updateToggleVisibility);
 
   updateToggleVisibility();
 });
