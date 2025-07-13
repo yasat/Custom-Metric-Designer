@@ -1,14 +1,16 @@
 import numpy as np
 import pandas as pd
 from sklearn.metrics.pairwise import euclidean_distances
+import os
+from django.conf import settings
 
 try:
-    data_5m = pd.read_csv('superadminpanel/full_dataset_5m.csv')
+    data_5m = pd.read_csv(os.path.join(settings.BASE_DIR, 'superadminpanel', 'full_dataset.csv'))
 except:
     try:
-        data_5m = pd.read_csv('superadminpanel/full_dataset.csv')
+        data_5m = pd.read_csv(os.path.join(settings.BASE_DIR, 'superadminpanel', 'full_dataset.csv'))
     except:
-        data_5m = pd.read_csv('superadminpanel/full_dataset_old.csv')
+        data_5m = pd.read_csv(os.path.join(settings.BASE_DIR, 'superadminpanel', 'full_dataset_old.csv'))
 
 def demographic_parity(protected_df, nonprotected_df, threshold=0.1):
     p1 = protected_df["pred"].mean()

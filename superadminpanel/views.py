@@ -16,10 +16,6 @@ FAIRNESS_METRIC_MAP = {
     "counterfactual_fairness": counterfactual_fairness,
 }
 
-
-def superuser_required(view_func):
-    return user_passes_test(lambda u: u.is_superuser)(view_func)
-
 def render_metric_preview(metric, staging):
     if isinstance(metric, DesignExistingMetrics):
         return render_existing_preview(metric)
@@ -560,7 +556,6 @@ def render_affordability_preview(design):
     </div>
     """
 
-@superuser_required
 def superadmin_dashboard(request):
     staging_data = Staging.objects.values('pid').exclude(pid__isnull=True).exclude(pid__exact='').distinct()
     participants = []
@@ -606,8 +601,6 @@ def superadmin_dashboard(request):
 
     return render(request, 'superadminpanel/dashboard.html', {'participants': participants})
 
-
-@superuser_required
 def superadmin_view_metrics(request, pid):
     staging_ids = list(Staging.objects.filter(pid=pid).values_list('id', flat=True))
 

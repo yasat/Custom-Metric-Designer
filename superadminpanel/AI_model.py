@@ -2,8 +2,10 @@ import pandas as pd
 import numpy as np
 from core.features_data import FEATURE_CATEGORY_MAP
 from .existing_metrics import *
+import os
+from django.conf import settings
 
-data = pd.read_csv('superadminpanel/full_dataset_old.csv')
+data = pd.read_csv(os.path.join(settings.BASE_DIR, 'superadminpanel', 'full_dataset_old.csv'))
 
 
 def parse_feature_tags(feature_str, df=data, feature_category_map=FEATURE_CATEGORY_MAP, return_columns=False):
