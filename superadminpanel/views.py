@@ -381,9 +381,9 @@ def render_custom_preview(staging):
     return "No custom logic defined", "Unfair"
 
 
-def render_procedural_preview(staging, importance_path="superadminpanel/feature_importance.csv"):
+def render_procedural_preview(staging, importance_path="feature_importance.csv"):
     try:
-        imp_df = pd.read_csv(importance_path)
+        imp_df = pd.read_csv(os.path.join(settings.BASE_DIR, 'superadminpanel', importance_path))
         imp_map = dict(zip(imp_df['feature'], imp_df['importance']))
     except Exception as e:
         return f"<div class='alert alert-danger'>Error loading importance CSV: {e}</div>", "Unfair"
