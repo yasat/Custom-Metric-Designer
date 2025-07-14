@@ -7,6 +7,8 @@ class Staging(models.Model):
     perspective = models.CharField(max_length=50, blank=True, null=True)
     metric_type = models.CharField(max_length=50, blank=True, null=True)
 
+    priority = models.IntegerField(default=0, blank=True, null=True)
+
     def __str__(self):
         return f"Staging {self.id}"
     

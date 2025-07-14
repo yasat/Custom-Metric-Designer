@@ -10,11 +10,17 @@
 
 <h2>Participant Dashboard</h2>
 
+{% if final_result %}
+{{ final_result|safe }}
+{% endif %}
+
 {% if pid %}
+    <a href="{% url 'reorder_staging_view' pid %}" class="btn btn-sm btn-secondary">Reorder Metrics</a>
     {% if staging_data %}
         {% for staging in staging_data %}
             <hr>
-            <h4>Staging ID: {{ staging.id }}</h4>
+            <h4>Priority: {{ staging.priority }}</h4>
+            <h6>Staging ID: {{ staging.id }}</h6>
             <p>
                 <strong>Category:</strong> {{ staging.category }} |
                 <strong>Perspective:</strong> {{ staging.perspective }} |

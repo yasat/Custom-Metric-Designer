@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h3>Reorder Metrics for Participant: {{ pid }}</h3>
+
+<div id="alert-box" class="alert alert-danger d-none"></div>
+
+<form method="POST" id="priority-form">
+    {% csrf_token %}
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Staging ID</th>
+                <th>Category</th>
+                <th>Perspective</th>
+                <th>Metric Type</th>
+                <th>Priority</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for staging in stagings %}
+            <tr>
+                <td>{{ staging.id }}</td>
+                <td>{{ staging.category }}</td>
+                <td>{{ staging.perspective }}</td>
+                <td>{{ staging.metric_type }}</td>
+                <td>
+                    <input type="number" class="form-control priority-input" name="priority_{{ staging.id }}" value="{{ staging.priority }}" required>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <button type="submit" class="btn btn-primary">Save Order</button>
+    <a href="{% url 'superadmin_view_metrics' pid %}" class="btn btn-secondary">Back</a>
+</form>
+
+<script>
+document.getElementById("priority-form").addEventListener("submit", function (e) {
+    const inputs = document.querySelectorAll(".priority-input");
+    const values = Array.from(inputs).map(input => parseInt(input.value));
+    const total = values.length;
+    const alertBox = document.getElementById("alert-box");
+    let error = "";
+
+    inputs.forEach(input => input.classList.remove("is-invalid"));
+
+    if (values.some(isNaN)) {
+        error = "All priority fields must be filled with valid numbers.";
+    }
+
+    const unique = new Set(values);
+    if (!error && unique.size !== values.length) {
+        error = "Each priority must be unique.";
+    }
+
+    const sorted = [...unique].sort((a, b) => a - b);
+    const expected = Array.from({ length: total }, (_, i) => i + 1);
+    if (!error && JSON.stringify(sorted) !== JSON.stringify(expected)) {
+        error = `Priorities must be a continuous sequence from 1 to ${total}.`;
+    }
+
+    if (error) {
+        e.preventDefault();
+        alertBox.textContent = error;
+        alertBox.classList.remove("d-none");
+
+        inputs.forEach(input => {
+            const val = parseInt(input.value);
+            if (isNaN(val) || values.filter(v => v === val).length > 1 || val < 1 || val > total) {
+                input.classList.add("is-invalid");
+            }
+        });
+    }
+});
+</script>
+
+{% endblock %}

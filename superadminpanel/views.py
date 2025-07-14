@@ -1,5 +1,6 @@
 from django.contrib.auth.decorators import user_passes_test
 from django.shortcuts import render, get_object_or_404
+from django.http import HttpResponseRedirect
 from django.urls import reverse
 from core.models import *
 from .AI_model import *
@@ -44,7 +45,7 @@ def render_existing_preview(metric):
             return_columns=True
         )
     except Exception as e:
-        return f"<div class='alert alert-danger'>Error parsing features: {str(e)}</div>"
+        return f"<div class='alert alert-danger'>Error parsing features: {str(e)}</div>", "Unfair"
 
     threshold = (metric.threshold or 0.0)
     metric_id = (metric.metric or "").lower().strip()
@@ -64,7 +65,7 @@ def render_existing_preview(metric):
             assessment = fn(protected_df, non_protected_df, threshold)
 
     except Exception as e:
-        return f"<div class='alert alert-danger'>Metric computation error: {str(e)}</div>"
+        return f"<div class='alert alert-danger'>Metric computation error: {str(e)}</div>", "Unfair"
 
     for item in metric.features.split(","):
         item = item.strip()
@@ -89,13 +90,13 @@ def render_existing_preview(metric):
         <div><strong>Assessment Score:</strong> {assessment['value']}</div>
         <div><strong>Result:</strong> <span class="text-{result_color}">{'Fair' if assessment['fair'] else 'Unfair'}</span></div>
     </div>
-    """
+    """, 'Fair' if assessment['fair'] else 'Unfair'
 
 
 def render_combine_existing_preview(staging):
     designs = DesignCombineMetrics.objects.filter(sid=staging, delete_flag=False).order_by('group_level', 'order')
     if not designs.exists():
-        return "<div class='alert alert-warning'>No combined designs found.</div>"
+        return "<div class='alert alert-warning'>No combined designs found.</div>", "Unfair"
 
     group_map = defaultdict(list)
     for d in designs:
@@ -250,7 +251,7 @@ def render_combine_existing_preview(staging):
         </div>
     """
 
-    return final_html
+    return final_html, 'Fair' if final_result else 'Unfair'
 
 
 def render_custom_preview(staging):
@@ -348,7 +349,7 @@ def render_custom_preview(staging):
             </div>
         </div>
         {vs_html}
-        """
+        """, 'Fair' if vs_fair else 'Unfair'
     
     # Combine Mode: just render all blocks
     elif combine_cards.exists():
@@ -375,9 +376,9 @@ def render_custom_preview(staging):
             {build_block(combine_cards, threshold)}
             {result_html}
         </div>
-        """
+        """, result_text
     
-    return "No custom logic defined"
+    return "No custom logic defined", "Unfair"
 
 
 def render_procedural_preview(staging, importance_path="superadminpanel/feature_importance.csv"):
@@ -385,14 +386,14 @@ def render_procedural_preview(staging, importance_path="superadminpanel/feature_
         imp_df = pd.read_csv(importance_path)
         imp_map = dict(zip(imp_df['feature'], imp_df['importance']))
     except Exception as e:
-        return f"<div class='alert alert-danger'>Error loading importance CSV: {e}</div>"
+        return f"<div class='alert alert-danger'>Error loading importance CSV: {e}</div>", "Unfair"
 
     designs = DesignProceduralMetric.objects.filter(sid=staging, delete_flag=False).order_by('order')
     badges = []
 
     total = designs.count()
     if total == 0:
-        return "<em>No procedural logic defined.</em>"
+        return "<em>No procedural logic defined.</em>", "Unfair"
 
     weight_per_condition = 100 / total
     cumulative_score = 0.0
@@ -496,7 +497,7 @@ def render_procedural_preview(staging, importance_path="superadminpanel/feature_
     </div>
     """
 
-    return "<div>" + " ".join(badges) + result_html + "</div>"
+    return "<div>" + " ".join(badges) + result_html + "</div>", result_text
 
 
 def render_affordability_preview(design):
@@ -554,7 +555,7 @@ def render_affordability_preview(design):
         </div>
         {result_html}
     </div>
-    """
+    """, 'Fair' if fair else 'Unfair'
 
 def superadmin_dashboard(request):
     staging_data = Staging.objects.values('pid').exclude(pid__isnull=True).exclude(pid__exact='').distinct()
@@ -564,11 +565,9 @@ def superadmin_dashboard(request):
         pid = entry['pid']
         sid_set = list(Staging.objects.filter(pid=pid).values_list('id', flat=True))
 
-        # Count unique designs by staging ID
         existing_count = DesignExistingMetrics.objects.filter(sid__in=sid_set, delete_flag=False).values('sid').distinct().count()
         combine_existing_count = DesignCombineMetrics.objects.filter(sid__in=sid_set, delete_flag=False).values('sid').distinct().count()
 
-        # Custom Logic: count distinct sid once per staging type
         own_combine_count = DesignCustomOwnMetric.objects.filter(
             sid__in=sid_set, side__isnull=True, delete_flag=False
         ).values('sid').distinct().count()
@@ -577,13 +576,11 @@ def superadmin_dashboard(request):
             sid__in=sid_set, side__in=["LHS", "RHS"], delete_flag=False
         ).values('sid').distinct().count()
 
-        # Procedural: count only if conditions exist
         procedural_sids = DesignProceduralMetric.objects.filter(
             sid__in=sid_set, delete_flag=False
         ).values_list('sid', flat=True).distinct()
         procedural_count = Staging.objects.filter(id__in=procedural_sids).count()
 
-        # Affordability: based on existence of cards under each design
         affordability_sids = AffordabilityCard.objects.filter(
             design__staging_id__in=sid_set, delete_flag=False
         ).values_list('design__staging_id', flat=True).distinct()
@@ -602,77 +599,122 @@ def superadmin_dashboard(request):
     return render(request, 'superadminpanel/dashboard.html', {'participants': participants})
 
 def superadmin_view_metrics(request, pid):
-    staging_ids = list(Staging.objects.filter(pid=pid).values_list('id', flat=True))
 
     staging_objects = []
 
     if pid:
-        staging_objects = Staging.objects.filter(pid=pid)
+        staging_objects = Staging.objects.filter(pid=pid).order_by('priority', 'id')
 
     staging_data = []
+
+    results = list()
 
     for staging in staging_objects:
         metrics = []
 
-        # Existing metrics: individual entries
         if staging.metric_type == "existing":
             for m in staging.existing_designs.filter(delete_flag=False):
+                preview, result = render_metric_preview(m, staging)
+                results.append(result)
                 metrics.append({
                     "type": "Existing",
-                    "preview": render_metric_preview(m, staging),
+                    "preview": preview,
                     "edit_url": f"{reverse('design_metric_features', args=[staging.id])}?edit={m.id}"
                 })
 
-        # Combine Existing: one combined preview
         elif staging.metric_type == "combine_existing":
+            preview, result = render_combine_existing_preview(staging)
+            results.append(result)
             metrics.append({
                 "type": "Combined",
-                "preview": render_combine_existing_preview(staging),
+                "preview": preview,
                 "edit_url": reverse('design_combine_existing_review_all', args=[staging.id])
             })
 
-        # Custom Own: combine or compare, single logic block
         elif staging.metric_type == "custom_own" and staging.perspective == "outcome":
             if(len(DesignCustomOwnMetric.objects.filter(sid=staging, side="LHS", delete_flag=False)) == 0):
+                preview, result = render_custom_preview(staging)
+                results.append(result)
                 metrics.append({
                     "type": "Custom Logic",
-                    "preview": render_custom_preview(staging),
+                    "preview": preview,
                     "edit_url": reverse('custom_own_logic_review', args=[staging.id])
                 })
             else:
+                preview, result = render_custom_preview(staging)
+                results.append(result)
                 metrics.append({
                     "type": "Custom Logic",
-                    "preview": render_custom_preview(staging),
+                    "preview": preview,
                     "edit_url": reverse('custom_own_compare_final_review', args=[staging.id])
                 })
 
-        # Procedural: one edit button per staging, single preview of all cards
         if staging.perspective == "procedural" and staging.procedural_designs.exists():
+            preview, result = render_procedural_preview(staging)
+            results.append(result)
             metrics.append({
                 "type": "Procedural",
-                "preview": render_procedural_preview(staging),
+                "preview": preview,
                 "edit_url": reverse('procedural_builder', args=[staging.id])
             })
 
-        # Affordability: one design per staging
         if hasattr(staging, 'AffordabilityDesign') and staging.AffordabilityDesign and not staging.AffordabilityDesign.delete_flag:
+            preview, result = render_affordability_preview(staging.AffordabilityDesign)
+            results.append(result)
             metrics.append({
                 "type": "Affordability",
-                "preview": render_affordability_preview(staging.AffordabilityDesign),
+                "preview": preview,
                 "edit_url": reverse('affordability_builder', args=[staging.id])
             })
 
-        # Append all to staging_data
         staging_data.append({
             "id": staging.id,
             "category": staging.category,
             "perspective": staging.perspective,
             "metric_type": staging.metric_type,
             "metrics": metrics,
+            "priority": staging.priority,
         })
 
+    total_passed = len([r for r in results if r == 'Fair'])
+    final_result = "Unfair" if total_passed == 0 else "Fair" if total_passed == len(results) else "Partially Fair ("+str(total_passed)+"/"+str(len(results))+")"
+    print(f"Final Result: {final_result}")
+
+    color = "success" if final_result == "Fair" else "danger" if final_result == "Unfair" else "warning"
+
+    final_result_html = f"""
+    <div class="alert alert-{color} border border-2">
+        <h5 class="mb-0">Overall Fairness Assessment: {final_result}</h5>
+    </div>"""
 
     return render(request, 'superadminpanel/view_metrics.html', {
                             "pid": pid,
                             "staging_data": staging_data,
+                            "final_result": final_result_html
                         })
+
+def reorder_staging_view(request, pid):
+    stagings = list(Staging.objects.filter(pid=pid).order_by('priority', 'id'))
+
+    if request.method == "POST":
+        priorities = {}
+        for key, value in request.POST.items():
+            if key.startswith("priority_"):
+                try:
+                    sid = int(key.split("_")[1])
+                    prio = int(value)
+                    priorities[sid] = prio
+                except ValueError:
+                    continue
+
+        for staging in stagings:
+            staging.priority = priorities.get(staging.id, staging.priority)
+            staging.save()
+
+        return HttpResponseRedirect(reverse('superadmin_view_metrics', args=[pid]))
+
+    return render(request, "superadminpanel/reorder_staging.html", {
+        "pid": pid,
+        "stagings": stagings,
+        "total_count": len(stagings)
+    })

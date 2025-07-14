@@ -5,7 +5,7 @@ import os
 from django.conf import settings
 
 try:
-    data_5m = pd.read_csv(os.path.join(settings.BASE_DIR, 'superadminpanel', 'full_dataset.csv'))
+    data_5m = pd.read_csv(os.path.join(settings.BASE_DIR, 'superadminpanel', 'full_dataset_5m.csv'))
 except:
     try:
         data_5m = pd.read_csv(os.path.join(settings.BASE_DIR, 'superadminpanel', 'full_dataset.csv'))

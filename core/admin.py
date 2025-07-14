@@ -3,7 +3,7 @@ from .models import *
 
 @admin.register(Staging)
 class StagingAdmin(admin.ModelAdmin):
-    list_display = ['id', 'pid', 'category', 'perspective', 'metric_type']
+    list_display = ['id', 'pid', 'category', 'perspective', 'metric_type', 'priority']
     search_fields = ['pid', 'category', 'perspective', 'metric_type']
     list_filter = ['category', 'perspective', 'metric_type']
 

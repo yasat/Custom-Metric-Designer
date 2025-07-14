@@ -13,6 +13,7 @@
       <th>Procedural</th>
       <th>Affordability</th>
       <th></th>
+      <th></th>
     </tr>
   </thead>
   <tbody>
@@ -26,6 +27,7 @@
       <td>{{ row.procedural }}</td>
       <td>{{ row.affordability }}</td>
       <td><a href="{% url 'superadmin_view_metrics' row.pid %}" class="btn btn-sm btn-primary">View Metrics</a></td>
+      <td><a href="{% url 'reorder_staging_view' row.pid %}" class="btn btn-sm btn-secondary">Reorder Metrics</a></td>
     </tr>
     {% endfor %}
   </tbody>
