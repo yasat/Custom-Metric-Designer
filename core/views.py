@@ -19,20 +19,20 @@ PROCEDURAL_LABELS = [
 ]
 
 PROBABILITY_LABELS = [
-    ("predicted_true", "Predicted: True"),
-    ("predicted_false", "Predicted: False"),
-    ("ground_truth_true", "Ground Truth: True"),
-    ("ground_truth_false", "Ground Truth: False"),
+    ("Predicted: Good Credit", "Predicted: Good Credit"),
+    ("Predicted: Bad Credit", "Predicted: Bad Credit"),
+    ("Originally Rated: Good Credit", "Originally Rated: Good Credit"),
+    ("Originally Rated: Bad Credit", "Originally Rated: Bad Credit"),
 ]
 
 def get_valid_condition_labels(probability_type):
     if not probability_type:
         return []
 
-    if probability_type.startswith("predicted"):
-        a =  [l for l in PROBABILITY_LABELS if l[0].startswith("ground_truth")]
-    elif probability_type.startswith("ground_truth"):
-        a =  [l for l in PROBABILITY_LABELS if l[0].startswith("predicted")]
+    if probability_type.startswith("Predicted"):
+        a =  [l for l in PROBABILITY_LABELS if l[0].startswith("Originally Rated")]
+    elif probability_type.startswith("Originally Rated"):
+        a =  [l for l in PROBABILITY_LABELS if l[0].startswith("Predicted")]
     else:
         a = PROBABILITY_LABELS
 

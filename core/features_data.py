@@ -86,14 +86,11 @@ FEATURES = [
         "explanation": "Installment rate as a percentage of disposable income.",
     },
     {
-        "name": "Personal Status and Sex",
+        "name": "Gender",
         "type": "categorical",
         "categories": [
-            "male - divorced/separated",
-            "female - divorced/separated/married",
-            "male - single",
-            "male - married/widowed",
-            "female - single"
+            "Male",
+            "Female",
         ],
         "explanation": "Gender and marital status of the applicant.",
     },
@@ -182,7 +179,7 @@ FEATURES = [
         "type": "categorical",
         "categories": [
             "none",
-            "yes, registered under customer's name"
+            "yes: registered under customer's name"
         ],
         "explanation": "Telephone ownership and registration.",
     },
@@ -238,12 +235,9 @@ FEATURE_CATEGORY_MAP = {
         "4 - 7 years": "A74",
         ">= 7 years": "A75"
     },
-    "Personal Status and Sex": {
-        "male - divorced/separated": "A91",
-        "female - divorced/separated/married": "A92",
-        "male - single": "A93",
-        "male - married/widowed": "A94",
-        "female - single": "A95"
+    "Gender": {
+        "Male": "Male",
+        "Female": "Female"
     },
     "Other Debtors/Guarantors": {
         "none": "A101",
@@ -274,7 +268,7 @@ FEATURE_CATEGORY_MAP = {
     },
     "Telephone": {
         "none": "A191",
-        "yes, registered under customer's name": "A192"
+        "yes: registered under customer's name": "A192"
     },
     "Foreign Worker": {
         "yes": "A201",

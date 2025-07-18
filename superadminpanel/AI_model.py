@@ -120,17 +120,17 @@ def parse_custom_condition_mask(conditions, df=data, feature_category_map=FEATUR
                 print(f"[Range Error] {label}[{value}] → {e}")
                 continue
 
-        elif label in ['predicted', 'ground_truth']:
+        elif label in ['Predicted', 'Originally Rated']:
             if value not in ['true', 'false']:
                 print(f"[Invalid Value] {label}[{value}] must be 'true' or 'false'")
                 continue
-            if label == 'predicted' and value == 'true':
+            if label == 'Predicted' and value == 'true':
                 condition = df['pred'] == 1
-            elif label == 'ground_truth' and value == 'true':
+            elif label == 'Originally Rated' and value == 'true':
                 condition = df['label'] == 1
-            elif label == 'predicted' and value == 'false':
+            elif label == 'Predicted' and value == 'false':
                 condition = df['pred'] != 1
-            elif label == 'ground_truth' and value == 'false':
+            elif label == 'Originally Rated' and value == 'false':
                 condition = df['label'] != 1
 
         else:
@@ -149,16 +149,16 @@ def compute_conditional_probability(df, conditions, probability_type):
         print("[Warning] No records match the given conditions")
         return 0.0
 
-    if probability_type == "predicted_true":
+    if probability_type == "Predicted: Good Credit":
         return (sub_df["pred"] == 1).mean()
 
-    elif probability_type == "predicted_false":
+    elif probability_type == "Predicted: Bad Credit":
         return (sub_df["pred"] == 0).mean()
 
-    elif probability_type == "ground_truth_true":
+    elif probability_type == "Originally Rated: Good Credit":
         return (sub_df["label"] == 1).mean()
 
-    elif probability_type == "ground_truth_false":
+    elif probability_type == "Originally Rated: Bad Credit":
         return (sub_df["label"] == 0).mean()
 
     else:

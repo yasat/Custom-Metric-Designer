@@ -24,7 +24,7 @@
     <div class="btn-group" role="group">
       {% for label in labels %}
         <button type="button" class="btn btn-outline-primary label-toggle"
-                data-group="{% if 'ground_truth' in label.0 %}ground_truth{% elif 'predicted' in label.0 %}predicted{% endif %}"
+                data-group="{% if 'Originally Rated' in label.0 %}Originally Rated{% elif 'Predicted' in label.0 %}Predicted{% endif %}"
                 data-value="{{ label.0 }}">
           {{ label.1 }}
         </button>
@@ -37,7 +37,7 @@
 
   <div id="conditions-container">
     {% for cond in conditions %}
-      {% if cond.feature != 'ground_truth_true' and cond.feature != 'ground_truth_false' and cond.feature != 'predicted_true' and cond.feature != 'predicted_false' %}
+      {% if cond.feature != 'Originally Rated: Good Credit' and cond.feature != 'Originally Rated: Bad Credit' and cond.feature != 'Predicted: Good Credit' and cond.feature != 'Predicted: Bad Credit' %}
         {% if not forloop.first %}
           <div class="row mb-2 logic-block">
             <div class="col-md-3">
@@ -166,7 +166,7 @@ function addCondition(isLabelTrigger = false) {
 
 document.addEventListener("DOMContentLoaded", function () {
   {% for cond in conditions %}
-    {% if cond.feature != 'ground_truth_true' and cond.feature != 'ground_truth_false' and cond.feature != 'predicted_true' and cond.feature != 'predicted_false' %}
+    {% if cond.feature != 'Originally Rated: Good Credit' and cond.feature != 'Originally Rated: Bad Credit' and cond.feature != 'Predicted: Good Credit' and cond.feature != 'Predicted: Bad Credit' %}
       renderBinningField("binning-block-{{ forloop.counter0 }}", "{{ cond.feature|escapejs }}", "{{ cond.binning|escapejs }}");
     {% endif %}
   {% endfor %}
@@ -182,10 +182,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
     let showGroup = null;
 
-    if (val.includes("predicted")) {
-      showGroup = "ground_truth";
-    } else if (val.includes("ground_truth")) {
-      showGroup = "predicted";
+    if (val.includes("Predicted")) {
+      showGroup = "Originally Rated";
+    } else if (val.includes("Originally Rated")) {
+      showGroup = "Predicted";
     }
 
     labelButtons.forEach(btn => {
