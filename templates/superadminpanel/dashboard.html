@@ -2,6 +2,10 @@
 {% block content %}
 <h2 class="my-4">Superadmin Dashboard</h2>
 
+<a href="{% url 'export_metrics_excel' %}" class="btn btn-outline-success">
+  Export All Metrics to Excel
+</a>
+
 <table class="table table-bordered">
   <thead>
     <tr>

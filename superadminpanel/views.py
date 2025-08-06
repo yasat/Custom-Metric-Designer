@@ -1,9 +1,14 @@
 from django.contrib.auth.decorators import user_passes_test
 from django.shortcuts import render, get_object_or_404
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, HttpResponse
 from django.urls import reverse
 from core.models import *
 from .AI_model import *
+
+from django.utils.html import strip_tags
+
+from openpyxl import Workbook
+from openpyxl.utils import get_column_letter
 
 from collections import defaultdict
 
@@ -718,3 +723,74 @@ def reorder_staging_view(request, pid):
         "stagings": stagings,
         "total_count": len(stagings)
     })
+
+def export_metrics_excel(request):
+    from openpyxl import Workbook
+    from openpyxl.utils import get_column_letter
+    from django.http import HttpResponse
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Fairness Metrics Log"
+
+    headers = [
+        "Participant ID", "Priority", "Category", "Perspective",
+        "Metric Type", "Assessment Result", "Metric Preview"
+    ]
+    ws.append(headers)
+
+    staging_data = Staging.objects.values('pid').exclude(pid__isnull=True).exclude(pid__exact='').distinct()
+
+    for entry in staging_data:
+        pid = entry['pid']
+
+        if("temp" in pid):
+            continue
+        stagings = Staging.objects.filter(pid=pid).order_by('priority', 'id')
+
+        for staging in stagings:
+            metric_rows = []
+
+            if staging.metric_type == "existing":
+                for m in staging.existing_designs.filter(delete_flag=False):
+                    preview, result = render_metric_preview(m, staging)
+                    metric_rows.append(("Existing", result, preview))
+
+            elif staging.metric_type == "combine_existing":
+                preview, result = render_combine_existing_preview(staging)
+                metric_rows.append(("Combined", result, preview))
+
+            elif staging.metric_type == "custom_own" and staging.perspective == "outcome":
+                preview, result = render_custom_preview(staging)
+                metric_rows.append(("Custom Logic", result, preview))
+
+            if staging.perspective == "procedural" and staging.procedural_designs.exists():
+                preview, result = render_procedural_preview(staging)
+                metric_rows.append(("Procedural", result, preview))
+
+            if hasattr(staging, 'AffordabilityDesign') and staging.AffordabilityDesign and not staging.AffordabilityDesign.delete_flag:
+                preview, result = render_affordability_preview(staging.AffordabilityDesign)
+                metric_rows.append(("Affordability", result, preview))
+
+            for metric_type, result, preview in metric_rows:
+                preview_text = strip_tags(preview)
+                ws.append([
+                    pid,
+                    staging.priority,
+                    staging.category,
+                    staging.perspective,
+                    metric_type,
+                    result,
+                    preview_text
+                ])
+
+    # Adjust column widths
+    for col in ws.columns:
+        max_length = max(len(str(cell.value)) if cell.value else 0 for cell in col)
+        col_letter = get_column_letter(col[0].column)
+        ws.column_dimensions[col_letter].width = min(max_length + 2, 60)
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename=UI_metrics_export.xlsx'
+    wb.save(response)
+    return response
